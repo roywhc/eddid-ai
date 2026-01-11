@@ -1,0 +1,4 @@
+initdb -D D:\postgres\data
+pg_ctl -D D:\postgres\data start
+createdb eddid_ai
+create user eddid_app_rw with password 'SgXAps3ADjrOr4ZrwpRN'
