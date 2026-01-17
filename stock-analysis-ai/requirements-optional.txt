@@ -1,0 +1,8 @@
+# Optional dependencies for PostgreSQL/pgvector support
+# Only install if you plan to use pgvector instead of ChromaDB
+psycopg2-binary>=2.9.9
+
+# Note: If you encounter Rust build errors with instructor==1.4.0,
+# you can install a newer version that uses jiter with pre-built wheels:
+# pip install "instructor>=1.4.0"
+
