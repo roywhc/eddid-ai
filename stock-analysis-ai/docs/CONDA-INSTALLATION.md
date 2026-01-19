@@ -149,3 +149,4 @@ After installation:
 3. Run the application: `uvicorn app.main:app --reload`
 4. Access API docs: http://localhost:8000/docs
 
+

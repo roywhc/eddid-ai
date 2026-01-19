@@ -58,3 +58,4 @@ python -c "import instructor; print(f'✓ Instructor: {instructor.__version__}')
 
 All core infrastructure (Step 1) is complete and ready to use!
 
+

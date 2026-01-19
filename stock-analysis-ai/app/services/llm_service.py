@@ -131,3 +131,4 @@ class LLMService:
             "base_url": getattr(self.client, "base_url", None) if self.client else None
         }
 
+
