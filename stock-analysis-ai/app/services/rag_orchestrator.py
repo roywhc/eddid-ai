@@ -12,6 +12,7 @@ from app.services.kb_curator import KBCuratorService
 from app.config import settings
 from app.models import ChatRequest, ChatResponse, ChatMessage, Citation, RetrievalResult
 from app.utils.aiops_logger import get_aiops_logger
+from app.services.metrics_service import get_metrics_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class RAGOrchestrator:
         self.perplexity_service = PerplexityService()
         self.kb_curator = KBCuratorService()
         self.aiops_logger = get_aiops_logger()
+        self.metrics = get_metrics_service()
         logger.info("RAGOrchestrator initialized with Perplexity integration and KB curator")
     
     async def process_query(self, request: ChatRequest) -> ChatResponse:
@@ -74,11 +76,19 @@ class RAGOrchestrator:
             kb_id = "default_kb"  # TODO: Make configurable per request
             logger.debug(f"Retrieving from KB: {kb_id}")
             
+            # Track KB search metrics
+            kb_search_start = time.time()
             retrieval_results = await self.retrieval_service.retrieve(
                 query=request.query,
                 kb_id=kb_id,
                 top_k=5
             )
+            kb_search_duration = time.time() - kb_search_start
+            
+            # Record KB search metrics
+            self.metrics.increment_counter("kb_search_total", labels={"kb_id": kb_id})
+            self.metrics.record_histogram("kb_search_duration_seconds", kb_search_duration, labels={"kb_id": kb_id})
+            self.metrics.record_histogram("kb_search_results_count", len(retrieval_results), labels={"kb_id": kb_id})
             
             # Step 2: Calculate confidence score
             confidence_score = self.confidence_service.calculate_confidence(
@@ -86,6 +96,9 @@ class RAGOrchestrator:
                 request.query
             )
             logger.debug(f"Confidence score: {confidence_score:.2f}")
+            
+            # Record confidence score
+            self.metrics.record_histogram("rag_confidence_score", confidence_score)
             
             # Log KB search results (after confidence calculation)
             self.aiops_logger.log_kb_search(
@@ -148,6 +161,8 @@ class RAGOrchestrator:
                 
                 except Exception as e:
                     logger.warning(f"External knowledge query failed, using internal KB only: {e}")
+                    # Record Perplexity error
+                    self.metrics.increment_counter("perplexity_errors_total", labels={"error_type": type(e).__name__})
                     # Log error
                     self.aiops_logger.log_error(
                         error_type="PerplexityError",
@@ -197,6 +212,14 @@ class RAGOrchestrator:
             
             # Step 7: Calculate processing time
             processing_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+            
+            # Record RAG pipeline metrics
+            self.metrics.increment_counter("rag_queries_total")
+            self.metrics.record_histogram("rag_query_duration_seconds", processing_time / 1000.0)
+            if len(retrieval_results) > 0:
+                self.metrics.increment_counter("rag_internal_kb_used_total")
+            if used_external_kb:
+                self.metrics.increment_counter("rag_external_kb_used_total")
             
             # Step 8: Generate candidate entry if external KB was used
             candidate_id = None
