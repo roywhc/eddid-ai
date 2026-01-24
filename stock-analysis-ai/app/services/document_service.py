@@ -12,6 +12,7 @@ from app.db.metadata_store import SessionLocal, DocumentRecord, ChunkRecord
 from app.utils.chunking import DocumentChunker
 from app.db.vector_store import get_vector_store_instance
 from app.config import settings
+from app.services.metrics_service import get_metrics_service
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class DocumentService:
             chunk_overlap=settings.chunk_overlap
         )
         self.vector_store = None  # Will be initialized on first use
+        self.metrics = get_metrics_service()
         logger.info("DocumentService initialized")
     
     def _get_vector_store(self):
@@ -159,6 +161,9 @@ class DocumentService:
             
             db.commit()
             logger.info(f"Document {doc_id} created successfully")
+            
+            # Record metrics
+            self.metrics.increment_counter("documents_created_total", labels={"kb_id": request.kb_id, "doc_type": request.doc_type})
             
             # Return KBDocument
             return KBDocument(
@@ -359,6 +364,9 @@ class DocumentService:
             db.commit()
             logger.info(f"Document {doc_id} updated successfully (version: {new_version})")
             
+            # Record metrics
+            self.metrics.increment_counter("documents_updated_total", labels={"kb_id": request.kb_id, "doc_type": request.doc_type})
+            
             # Return updated KBDocument
             return KBDocument(
                 doc_id=doc_record.doc_id,
@@ -429,6 +437,10 @@ class DocumentService:
             
             db.commit()
             logger.info(f"Document {doc_id} deleted successfully")
+            
+            # Record metrics
+            self.metrics.increment_counter("documents_deleted_total")
+            
             return True
         
         except Exception as e:

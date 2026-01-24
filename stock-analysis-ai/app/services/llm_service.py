@@ -7,6 +7,7 @@ from app.config import settings, LLMProvider
 from app.utils.stock_analysis_detector import StockAnalysisDetector
 from app.utils.prompt_templates import PromptTemplates
 from app.utils.aiops_logger import get_aiops_logger
+from app.services.metrics_service import get_metrics_service
 import logging
 import time
 
@@ -22,6 +23,7 @@ class LLMService:
         self.model = settings.llm_model
         self.temperature = settings.llm_temperature
         self.aiops_logger = get_aiops_logger()
+        self.metrics = get_metrics_service()
         self._initialize_client()
     
     def _initialize_client(self):
@@ -153,6 +155,9 @@ class LLMService:
             return content
         
         except Exception as e:
+            # Record LLM error
+            self.metrics.increment_counter("llm_errors_total", labels={"model": self.model, "error_type": type(e).__name__})
+            
             logger.error(f"❌ LLM API error:")
             logger.error(f"  - Provider: {self.provider.value}")
             logger.error(f"  - Model: {self.model}")

@@ -41,8 +41,23 @@ class IndexTools:
         Returns:
             Index node dictionary or None if not found
         """
+        # Validate and normalize node_path
+        if node_path:
+            # Strip whitespace and normalize path
+            node_path = node_path.strip()
+            # Reject invalid paths (empty, just slashes, or absolute paths)
+            if not node_path or node_path in ['\\', '/', '\\\\', '//'] or Path(node_path).is_absolute():
+                logger.warning(f"Invalid node_path provided: '{node_path}'. Ignoring and using node_id instead.")
+                node_path = None
+        
         if node_path:
             file_path = self.indexes_dir / node_path
+            # Additional validation: ensure path is within indexes_dir
+            try:
+                file_path.resolve().relative_to(self.indexes_dir.resolve())
+            except ValueError:
+                logger.error(f"Invalid node_path: '{node_path}' is outside indexes directory")
+                return None
         elif node_id:
             # Determine path from node_id
             if node_id == "root":

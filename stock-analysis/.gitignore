@@ -40,6 +40,9 @@ env/
 *.swo
 *~
 
+# AIOps logs
+aiops_logs/
+
 # OS
 .DS_Store
 Thumbs.db

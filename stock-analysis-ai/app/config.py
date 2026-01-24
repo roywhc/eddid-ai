@@ -105,6 +105,10 @@ class Settings(BaseSettings):
     aiops_logging_enabled: bool = True
     aiops_log_dir: str = "./aiops"
     aiops_retention_days: int = 7  # Keep AIOps logs for 7 days by default
+    
+    # Metrics & Monitoring
+    metrics_enabled: bool = True
+    metrics_export_format: str = "prometheus"  # "prometheus" or "json"
 
     class Config:
         env_file = ".env"

@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SEQUENCE_DIAGRAM.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="rag-system-sequence-diagram">RAG System Sequence Diagram</h1>
+<p>This document illustrates the interaction flow between the Chat API, Knowledge Base (KB), and Perplexity services in the Agentic AI Knowledge Base System.</p>
+<h2 id="main-query-flow">Main Query Flow</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant ChatAPI as Chat API<br/>(/api/chat/query)
+    participant RAG as RAG Orchestrator
+    participant SessionMgr as Session Manager
+    participant Retrieval as Retrieval Service
+    participant KB as Knowledge Base<br/>(ChromaDB)
+    participant Confidence as Confidence Service
+    participant Perplexity as Perplexity Service
+    participant LLM as LLM Service<br/>(OpenRouter/DeepSeek)
+    participant Curator as KB Curator
+
+    User->>ChatAPI: POST /query<br/>{query, session_id?}
+    
+    ChatAPI->>RAG: process_query(request)
+    
+    Note over RAG,SessionMgr: Session Management
+    alt session_id provided
+        RAG->>SessionMgr: get_history(session_id)
+        SessionMgr-->>RAG: conversation_history
+    else no session_id
+        RAG->>SessionMgr: create_session()
+        SessionMgr-->>RAG: new_session_id
+    end
+    
+    Note over RAG,KB: Internal KB Retrieval
+    RAG->>Retrieval: retrieve(query, kb_id, top_k=5)
+    Retrieval->>KB: similarity_search(query)
+    KB-->>Retrieval: retrieval_results[]
+    Retrieval-->>RAG: retrieval_results[]
+    
+    Note over RAG,Confidence: Confidence Calculation
+    RAG->>Confidence: calculate_confidence(results, query)
+    Confidence-->>RAG: confidence_score
+    
+    Note over RAG,Perplexity: External KB Decision
+    alt confidence < threshold OR use_external_kb=true
+        RAG->>Perplexity: search(query, additional_context?)
+        Note over Perplexity: Detect stock analysis query<br/>Use stock template if applicable
+        Perplexity->>Perplexity: StockAnalysisDetector.is_stock_analysis_query()
+        alt stock analysis detected
+            Perplexity->>Perplexity: PromptTemplates.format_stock_template()
+        end
+        Perplexity->>Perplexity: Call Perplexity API
+        Perplexity-->>RAG: ExternalKnowledgeResult
+    end
+    
+    Note over RAG,LLM: Answer Generation
+    RAG->>LLM: generate_answer(query, context, history, external_context)
+    LLM->>LLM: _build_rag_system_prompt(context, external_context, query)
+    alt stock analysis query detected
+        LLM->>LLM: Use stock analysis template
+    else regular query
+        LLM->>LLM: Use default RAG prompt
+    end
+    LLM->>LLM: Call OpenRouter/DeepSeek API
+    LLM-->>RAG: answer (string)
+    
+    Note over RAG,SessionMgr: Store Messages
+    RAG->>SessionMgr: add_message(session_id, user_message)
+    RAG->>SessionMgr: add_message(session_id, assistant_message)
+    
+    Note over RAG,Curator: KB Candidate Generation
+    alt external KB was used
+        RAG->>Curator: generate_and_save_candidate(query, answer, citations)
+        Curator->>Curator: Filter external citations
+        Curator->>Curator: Generate KBCandidate
+        Curator->>Curator: Save to database (kb_candidates table)
+        Curator-->>RAG: candidate_id
+    end
+    
+    Note over RAG,ChatAPI: Response Building
+    RAG->>RAG: _extract_citations(retrieval_results)
+    RAG->>RAG: Combine internal + external citations
+    RAG->>RAG: Build ChatResponse
+    RAG-->>ChatAPI: ChatResponse
+    ChatAPI-->>User: JSON Response<br/>{session_id, answer, sources, confidence_score, ...}
+</div></code></pre>
+<h2 id="detailed-component-interactions">Detailed Component Interactions</h2>
+<h3 id="1-session-management-flow">1. Session Management Flow</h3>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant RAG as RAG Orchestrator
+    participant SessionMgr as Session Manager
+    participant Storage as In-Memory Storage
+
+    RAG->>SessionMgr: get_history(session_id)
+    alt session exists
+        SessionMgr->>Storage: sessions[session_id]
+        Storage-->>SessionMgr: List[ChatMessage]
+        SessionMgr-->>RAG: conversation_history
+    else session not found
+        SessionMgr->>Storage: sessions[session_id] = []
+        SessionMgr-->>RAG: [] (empty history)
+    end
+    
+    Note over RAG,Storage: After query processing
+    RAG->>SessionMgr: add_message(session_id, user_message)
+    SessionMgr->>Storage: sessions[session_id].append(user_message)
+    
+    RAG->>SessionMgr: add_message(session_id, assistant_message)
+    SessionMgr->>Storage: sessions[session_id].append(assistant_message)
+</div></code></pre>
+<h3 id="2-knowledge-base-retrieval-flow">2. Knowledge Base Retrieval Flow</h3>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant RAG as RAG Orchestrator
+    participant Retrieval as Retrieval Service
+    participant VectorStore as Vector Store Interface
+    participant ChromaDB as ChromaDB
+
+    RAG->>Retrieval: retrieve(query, kb_id="default_kb", top_k=5)
+    Retrieval->>VectorStore: get_vector_store(kb_id)
+    VectorStore->>ChromaDB: similarity_search(query, n_results=5)
+    ChromaDB-->>VectorStore: results with metadata
+    VectorStore->>VectorStore: Convert to RetrievalResult[]
+    VectorStore-->>Retrieval: List[RetrievalResult]
+    Retrieval-->>RAG: retrieval_results[]
+</div></code></pre>
+<h3 id="3-external-knowledge-perplexity-flow">3. External Knowledge (Perplexity) Flow</h3>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant RAG as RAG Orchestrator
+    participant Perplexity as Perplexity Service
+    participant Detector as Stock Analysis Detector
+    participant Templates as Prompt Templates
+    participant PerplexityAPI as Perplexity API
+
+    RAG->>Perplexity: search(query, additional_context?)
+    
+    Perplexity->>Detector: is_stock_analysis_query(query)
+    Detector-->>Perplexity: true/false
+    
+    Perplexity->>Detector: has_explicit_requirements(query)
+    Detector-->>Perplexity: true/false
+    
+    alt stock analysis AND no explicit requirements
+        Perplexity->>Detector: get_analysis_info(query)
+        Detector-->>Perplexity: {ticker, current_date, user_enquiry}
+        Perplexity->>Templates: format_stock_template(ticker, date, enquiry)
+        Templates-->>Perplexity: formatted_template
+        Perplexity->>Perplexity: system_prompt = formatted_template
+    else regular query
+        Perplexity->>Perplexity: system_prompt = default_prompt
+    end
+    
+    Perplexity->>Perplexity: Build user_message<br/>(with additional_context if provided)
+    Perplexity->>PerplexityAPI: POST /chat/completions<br/>{model, messages, temperature}
+    PerplexityAPI-->>Perplexity: response with answer & citations
+    Perplexity->>Perplexity: _extract_citations(response)
+    Perplexity->>Perplexity: Convert to ExternalKnowledgeResult
+    Perplexity-->>RAG: ExternalKnowledgeResult
+</div></code></pre>
+<h3 id="4-llm-answer-generation-flow">4. LLM Answer Generation Flow</h3>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant RAG as RAG Orchestrator
+    participant LLM as LLM Service
+    participant Detector as Stock Analysis Detector
+    participant Templates as Prompt Templates
+    participant OpenRouter as OpenRouter API<br/>(DeepSeek)
+
+    RAG->>LLM: generate_answer(query, context, history, external_context)
+    
+    LLM->>LLM: _build_rag_system_prompt(context, external_context, query)
+    
+    LLM->>Detector: is_stock_analysis_query(query)
+    Detector-->>LLM: true/false
+    
+    LLM->>Detector: has_explicit_requirements(query)
+    Detector-->>LLM: true/false
+    
+    alt stock analysis AND no explicit requirements
+        LLM->>Detector: get_analysis_info(query)
+        Detector-->>LLM: {ticker, current_date, user_enquiry}
+        LLM->>Templates: format_stock_template(ticker, date, enquiry)
+        Templates-->>LLM: formatted_template
+        LLM->>LLM: base_prompt = formatted_template
+        LLM->>LLM: Append RAG context to template
+    else regular query
+        LLM->>LLM: Build default RAG prompt<br/>(with context sections)
+    end
+    
+    LLM->>LLM: Build messages array:<br/>[system_prompt, history, current_query]
+    LLM->>OpenRouter: POST /chat/completions<br/>{model: "deepseek/deepseek-v3.2", messages}
+    OpenRouter-->>LLM: response with answer
+    LLM->>LLM: Extract answer text
+    LLM-->>RAG: answer (string)
+</div></code></pre>
+<h3 id="5-kb-candidate-generation-flow">5. KB Candidate Generation Flow</h3>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant RAG as RAG Orchestrator
+    participant Curator as KB Curator Service
+    participant DB as PostgreSQL<br/>(kb_candidates table)
+
+    alt external KB was used
+        RAG->>Curator: generate_and_save_candidate(query, answer, citations, kb_id)
+        
+        Curator->>Curator: Filter external citations<br/>(source == "external")
+        
+        alt external citations found
+            Curator->>Curator: generate_candidate()<br/>Create KBCandidate object
+            Curator->>Curator: Extract external URLs
+            Curator->>Curator: Generate title from query
+            
+            Curator->>Curator: save_candidate(candidate)
+            Curator->>DB: Check for existing candidate<br/>(same query, status="pending")
+            
+            alt candidate exists
+                DB-->>Curator: existing_candidate
+                Curator->>DB: UPDATE hit_count += 1
+                DB-->>Curator: existing_candidate_id
+            else new candidate
+                Curator->>DB: INSERT new candidate
+                DB-->>Curator: new_candidate_id
+            end
+            
+            Curator-->>RAG: candidate_id
+        else no external citations
+            Curator-->>RAG: None (skip)
+        end
+    end
+</div></code></pre>
+<h2 id="key-decision-points">Key Decision Points</h2>
+<h3 id="decision-1-external-kb-query">Decision 1: External KB Query</h3>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Query Received] --> B{use_external_kb?}
+    B -->|false| C[Skip External KB]
+    B -->|true| D{confidence < threshold?}
+    D -->|yes| E[Query Perplexity]
+    D -->|no| F{retrieval_results empty?}
+    F -->|yes| E
+    F -->|no| C
+    E --> G[External KB Result]
+    C --> H[Continue with Internal KB Only]
+    G --> H
+</div></code></pre>
+<h3 id="decision-2-stock-analysis-template">Decision 2: Stock Analysis Template</h3>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Query Received] --> B{Stock Analysis Query?}
+    B -->|no| C[Use Default RAG Prompt]
+    B -->|yes| D{Explicit Requirements?}
+    D -->|yes| C
+    D -->|no| E[Use Stock Analysis Template]
+    E --> F[Format with TICKER, DATE, ENQUIRY]
+    F --> G[Append RAG Context]
+    C --> H[Generate Answer]
+    G --> H
+</div></code></pre>
+<h2 id="error-handling-flow">Error Handling Flow</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant RAG as RAG Orchestrator
+    participant Perplexity as Perplexity Service
+    participant LLM as LLM Service
+
+    RAG->>Perplexity: search(query)
+    alt Perplexity API Error
+        Perplexity-->>RAG: Exception
+        Note over RAG: Log warning<br/>Continue with internal KB only
+        RAG->>RAG: used_external_kb = False
+    end
+    
+    RAG->>LLM: generate_answer(...)
+    alt LLM API Error
+        LLM-->>RAG: Exception
+        Note over RAG: Log error<br/>Propagate exception
+        RAG-->>RAG: Raise exception to API
+    end
+</div></code></pre>
+<h2 id="data-flow-summary">Data Flow Summary</h2>
+<ol>
+<li><strong>User Query</strong> → Chat API</li>
+<li><strong>Session Management</strong> → Retrieve/Create session, get history</li>
+<li><strong>Internal KB Retrieval</strong> → ChromaDB similarity search</li>
+<li><strong>Confidence Calculation</strong> → Based on retrieval results</li>
+<li><strong>External KB Decision</strong> → Query Perplexity if needed</li>
+<li><strong>Stock Analysis Detection</strong> → Apply template if applicable</li>
+<li><strong>LLM Generation</strong> → Generate answer with context</li>
+<li><strong>Citation Extraction</strong> → Combine internal + external citations</li>
+<li><strong>Session Update</strong> → Store user &amp; assistant messages</li>
+<li><strong>Candidate Generation</strong> → Create KB candidate if external KB used</li>
+<li><strong>Response Building</strong> → Return ChatResponse with all metadata</li>
+</ol>
+<h2 id="notes">Notes</h2>
+<ul>
+<li><strong>Session ID</strong>: Maintains conversation context across queries</li>
+<li><strong>Confidence Threshold</strong>: Configurable via <code>KB_CONFIDENCE_THRESHOLD</code> setting</li>
+<li><strong>Stock Analysis</strong>: Automatically detected and uses professional template</li>
+<li><strong>Citations</strong>: Separated from answer text (sources in response, not in answer)</li>
+<li><strong>Error Handling</strong>: Graceful fallback to internal KB if external fails</li>
+<li><strong>KB Candidates</strong>: Automatically generated when external knowledge is used</li>
+</ul>
+
+</body>
+</html>

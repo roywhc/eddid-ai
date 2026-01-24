@@ -10,7 +10,8 @@ from app.config import settings
 from app.utils.logger import setup_logging
 from app.db.metadata_store import init_db
 from app.db.vector_store import init_vector_store
-from app.api import chat, kb_management, health
+from app.api import chat, kb_management, health, metrics
+from app.middleware.metrics_middleware import MetricsMiddleware
 
 # Setup logging first
 logger = setup_logging()
@@ -26,6 +27,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.env}")
     logger.info(f"Debug: {settings.debug}")
     logger.info(f"Vector Store: {settings.vector_store_type}")
+    logger.info(f"LLM Provider: {settings.llm_provider.value}")
+    logger.info(f"LLM Model: {settings.llm_model}")
+    logger.info(f"OpenRouter Base URL: {settings.openrouter_base_url}")
+    logger.info(f"OpenRouter API Key: {'SET' if settings.openrouter_api_key else 'NOT SET'}")
     
     # Create data directory if it doesn't exist
     os.makedirs("./data", exist_ok=True)
@@ -87,6 +92,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 app.include_router(kb_management.router, prefix="/api/v1/kb", tags=["knowledge-base"])
+app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["metrics"])
 
 # ===== Root Endpoint =====
 

@@ -1,10 +1,22 @@
 import { supabase } from './supabase';
 import { updateSubscriptionUsage, getAISubscription } from './subscriptionService';
+import Constants from 'expo-constants';
+
+// Get Perplexity API key from environment variables
+const perplexityApiKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_PERPLEXITY_API_KEY || process.env.EXPO_PUBLIC_PERPLEXITY_API_KEY || '';
+
+if (!perplexityApiKey) {
+  console.warn(
+    'Missing Perplexity API Key. Please set EXPO_PUBLIC_PERPLEXITY_API_KEY in your .env file or environment variables.\n' +
+    'Create a .env file in the ui directory with:\n' +
+    'EXPO_PUBLIC_PERPLEXITY_API_KEY=your-perplexity-api-key-here'
+  );
+}
 
 export const API_CONFIG = {
-  baseUrl: 'https://routellm.abacus.ai/v1',
-  apiKey: 's2_22d107c5d0ff4d559459114c3a1e432e',
-  model: 'gpt-5',
+  baseUrl: 'https://api.perplexity.ai',
+  apiKey: perplexityApiKey,
+  model: 'sonar-pro', // Using sonar-pro for complex queries requiring deep search and reasoning
 };
 
 export const LOADING_MESSAGES = [
@@ -348,7 +360,35 @@ async function callAgent(agentType: AgentType, message: string, language?: strin
     const languageInstruction = language && languageInstructions[language] ? languageInstructions[language] : '';
     const systemPrompt = SYSTEM_PROMPTS[agentType] + languageInstruction;
 
-    const requestBody = {
+    // Perplexity-specific configuration based on agent type
+    const perplexityConfig: any = {};
+    
+    // For economist agent, focus on financial news sources
+    if (agentType === 'economist') {
+      perplexityConfig.search_domain_filter = [
+        'bloomberg.com',
+        'reuters.com',
+        'ft.com',
+        'wsj.com',
+        'cnbc.com',
+        'marketwatch.com',
+        'financialtimes.com',
+      ];
+      perplexityConfig.search_recency_filter = 'month'; // Focus on recent news
+    }
+    
+    // For technical agent, focus on market data sources
+    if (agentType === 'technical') {
+      perplexityConfig.search_domain_filter = [
+        'tradingview.com',
+        'investing.com',
+        'marketwatch.com',
+        'bloomberg.com',
+        'reuters.com',
+      ];
+    }
+
+    const requestBody: any = {
       model: API_CONFIG.model,
       messages: [
         { role: 'system', content: systemPrompt },
@@ -356,6 +396,7 @@ async function callAgent(agentType: AgentType, message: string, language?: strin
       ],
       temperature: 0.7,
       max_tokens: 2000,
+      ...perplexityConfig,
     };
 
     console.log(`[${agentType}] Sending request to: ${API_CONFIG.baseUrl}/chat/completions`);
@@ -410,7 +451,35 @@ async function callAgentWithStreaming(
     const languageInstruction = language && languageInstructions[language] ? languageInstructions[language] : '';
     const systemPrompt = SYSTEM_PROMPTS[agentType] + languageInstruction;
 
-    const requestBody = {
+    // Perplexity-specific configuration based on agent type
+    const perplexityConfig: any = {};
+    
+    // For economist agent, focus on financial news sources
+    if (agentType === 'economist') {
+      perplexityConfig.search_domain_filter = [
+        'bloomberg.com',
+        'reuters.com',
+        'ft.com',
+        'wsj.com',
+        'cnbc.com',
+        'marketwatch.com',
+        'financialtimes.com',
+      ];
+      perplexityConfig.search_recency_filter = 'month'; // Focus on recent news
+    }
+    
+    // For technical agent, focus on market data sources
+    if (agentType === 'technical') {
+      perplexityConfig.search_domain_filter = [
+        'tradingview.com',
+        'investing.com',
+        'marketwatch.com',
+        'bloomberg.com',
+        'reuters.com',
+      ];
+    }
+
+    const requestBody: any = {
       model: API_CONFIG.model,
       messages: [
         { role: 'system', content: systemPrompt },
@@ -419,6 +488,7 @@ async function callAgentWithStreaming(
       temperature: 0.7,
       max_tokens: 2000,
       stream: true,
+      ...perplexityConfig,
     };
 
     const response = await fetch(`${API_CONFIG.baseUrl}/chat/completions`, {

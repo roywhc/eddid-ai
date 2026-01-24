@@ -14,7 +14,7 @@
   - `openrouter_base_url: str` - OpenRouter API base URL (default: https://openrouter.ai/api/v1)
   
 - Updated default LLM provider to `OPENROUTER`
-- Updated default model to `openai/gpt-4-turbo` (OpenRouter format)
+- Updated default model to `deepseek/deepseek-v3.2` (OpenRouter format)
 
 ### 2. LLM Service (`app/services/llm_service.py`)
 
@@ -48,7 +48,7 @@ Updated to include:
    ```bash
    LLM_PROVIDER=openrouter
    OPENROUTER_API_KEY=sk-or-v1-your-key-here
-   LLM_MODEL=openai/gpt-4-turbo
+   LLM_MODEL=deepseek/deepseek-v3.2
    ```
 
 3. Use the service:
@@ -64,6 +64,7 @@ Updated to include:
 OpenRouter uses format: `provider/model-name`
 
 Examples:
+- `deepseek/deepseek-v3.2` - DeepSeek V3.2 (default, cost-effective)
 - `openai/gpt-4-turbo` - GPT-4 Turbo
 - `openai/gpt-3.5-turbo` - GPT-3.5 Turbo (cheaper)
 - `anthropic/claude-3-opus` - Claude 3 Opus (best quality)
@@ -87,7 +88,7 @@ If you were using OpenAI directly:
    # After
    LLM_PROVIDER=openrouter
    OPENROUTER_API_KEY=sk-or-v1-...
-   LLM_MODEL=openai/gpt-4-turbo
+   LLM_MODEL=deepseek/deepseek-v3.2
    ```
 
 2. No code changes needed - the service handles it automatically!

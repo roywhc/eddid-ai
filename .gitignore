@@ -1,0 +1,28 @@
+# IDE and editor files
+.cursor/
+.specify/
+*.swp
+*.swo
+*~
+
+# Sensitive data
+credentials/
+
+# Backup files
+*.bkp
+*.bak
+*.backup
+
+# Large binary files (diagrams)
+*.drawio
+*.drawio.bkp
+
+# Data directories
+eddid-llm/eddid_data/
+
+# Test reports (generated)
+test-report*.txt
+
+# OS files
+.DS_Store
+Thumbs.db

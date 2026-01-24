@@ -9,6 +9,7 @@ from app.services.external_knowledge import PerplexityService
 from app.services.kb_curator import KBCuratorService
 from app.services.document_service import DocumentService
 from app.services.candidate_review_service import CandidateReviewService
+from app.services.metrics_service import MetricsService, get_metrics_service
 
 __all__ = [
     "LLMService",
@@ -19,5 +20,7 @@ __all__ = [
     "PerplexityService",
     "KBCuratorService",
     "DocumentService",
-    "CandidateReviewService"
+    "CandidateReviewService",
+    "MetricsService",
+    "get_metrics_service"
 ]

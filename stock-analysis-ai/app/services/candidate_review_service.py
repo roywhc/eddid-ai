@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models import KBCandidate, KBUpdateRequest, KBDocument
 from app.db.metadata_store import SessionLocal, KBCandidateRecord
 from app.services.document_service import DocumentService
+from app.services.metrics_service import get_metrics_service
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class CandidateReviewService:
     def __init__(self):
         """Initialize candidate review service"""
         self.document_service = DocumentService()
+        self.metrics = get_metrics_service()
         logger.info("CandidateReviewService initialized")
     
     def get_candidates(
@@ -143,6 +145,9 @@ class CandidateReviewService:
             db.commit()
             logger.info(f"Candidate {candidate_id} approved and converted to document {document.doc_id}")
             
+            # Record metrics
+            self.metrics.increment_counter("candidates_approved_total")
+            
             return document
         
         except Exception as e:
@@ -195,6 +200,10 @@ class CandidateReviewService:
             
             db.commit()
             logger.info(f"Candidate {candidate_id} rejected")
+            
+            # Record metrics
+            self.metrics.increment_counter("candidates_rejected_total")
+            
             return True
         
         except Exception as e:
@@ -255,6 +264,9 @@ class CandidateReviewService:
             
             db.commit()
             logger.info(f"Candidate {candidate_id} modified and converted to document {document.doc_id}")
+            
+            # Record metrics (counts as approved)
+            self.metrics.increment_counter("candidates_approved_total", labels={"modified": "true"})
             
             return document
         

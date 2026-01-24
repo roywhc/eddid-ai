@@ -1,0 +1,392 @@
+# Phase 3: Launch and Test via Swagger
+
+**Date**: 2026-01-25  
+**Purpose**: Guide for launching the application and testing Phase 3 RAG functionality via Swagger UI
+
+## Prerequisites
+
+### 1. Environment Setup
+
+Ensure you have:
+- ✅ Conda environment `agentic-kb` activated
+- ✅ All dependencies installed (Phase 1, 2, 3)
+- ✅ Vector store dependencies installed (`sentence-transformers`, `langchain-chroma`, etc.)
+
+### 2. API Keys Configuration
+
+For full functionality, you'll need an OpenRouter API key. Create or update `.env` file:
+
+```bash
+# In stock-analysis-ai/ directory
+cat > .env << EOF
+# LLM Configuration
+LLM_PROVIDER=openrouter
+LLM_MODEL=deepseek/deepseek-v3.2
+OPENROUTER_API_KEY=your-openrouter-api-key-here
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+
+# Optional: For Phase 4 (Perplexity)
+PERPLEXITY_API_KEY=your-perplexity-api-key-here
+
+# Vector Store
+VECTOR_STORE_TYPE=chromadb
+CHROMA_PERSIST_DIR=./data/chroma
+
+# Metadata DB
+METADATA_DB_URL=sqlite:///./data/metadata.db
+
+# Confidence Threshold
+KB_CONFIDENCE_THRESHOLD=0.7
+EOF
+```
+
+**Note**: For testing without API keys, the app will start but chat queries will fail when calling the LLM.
+
+## Launching the Application
+
+### Option 1: Using Run Script (Recommended)
+
+**Windows**:
+```bash
+cd stock-analysis-ai
+run.bat
+```
+
+**Linux/Mac**:
+```bash
+cd stock-analysis-ai
+./run.sh
+```
+
+### Option 2: Manual Start
+
+```bash
+# Activate conda environment
+conda activate agentic-kb
+
+# Navigate to project directory
+cd stock-analysis-ai
+
+# Start the server
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Option 3: Direct Python Execution
+
+```bash
+cd stock-analysis-ai
+conda activate agentic-kb
+python -m app.main
+```
+
+## Accessing Swagger UI
+
+Once the server is running, open your browser and navigate to:
+
+**Swagger UI**: http://localhost:8000/docs
+
+**Alternative API Docs (ReDoc)**: http://localhost:8000/redoc
+
+**Root Endpoint**: http://localhost:8000/
+
+**Health Check**: http://localhost:8000/api/v1/health
+
+## Testing the Chat API via Swagger
+
+### Step 1: Open Swagger UI
+
+1. Navigate to http://localhost:8000/docs
+2. You should see the FastAPI Swagger interface with all available endpoints
+
+### Step 2: Test Health Endpoint (Optional)
+
+1. Expand the **`GET /api/v1/health`** endpoint
+2. Click **"Try it out"**
+3. Click **"Execute"**
+4. Verify response shows:
+   - `status: "healthy"` or `"degraded"`
+   - `components.vector_db: "healthy"` or status
+   - `components.metadata_db: "healthy"`
+
+### Step 3: Test Chat Query Endpoint
+
+1. **Expand the Chat endpoint**:
+   - Find **`POST /api/v1/chat/query`** in the Swagger UI
+
+2. **Click "Try it out"**
+
+3. **Fill in the request body**:
+
+   **Basic Query (No Session)**:
+   ```json
+   {
+     "query": "What is artificial intelligence?",
+     "include_sources": true,
+     "use_external_kb": false
+   }
+   ```
+
+   **Query with Session**:
+   ```json
+   {
+     "query": "Tell me more about machine learning",
+     "session_id": "test_session_001",
+     "include_sources": true,
+     "use_external_kb": false,
+     "conversation_history": []
+   }
+   ```
+
+   **Multi-turn Conversation**:
+   ```json
+   {
+     "query": "What are the applications?",
+     "session_id": "test_session_001",
+     "include_sources": true,
+     "conversation_history": [
+       {
+         "role": "user",
+         "content": "What is AI?"
+       },
+       {
+         "role": "assistant",
+         "content": "AI stands for Artificial Intelligence..."
+       }
+     ]
+   }
+   ```
+
+4. **Click "Execute"**
+
+5. **Review the Response**:
+   - Check `status_code: 200`
+   - Verify response includes:
+     - `session_id`: Session identifier
+     - `query`: Your original query
+     - `answer`: Generated answer from LLM
+     - `sources`: Array of citations (may be empty if no KB content)
+     - `confidence_score`: Score between 0.0 and 1.0
+     - `used_internal_kb`: `true` or `false`
+     - `used_external_kb`: `false` (Phase 3 only uses internal KB)
+     - `processing_time_ms`: Time taken in milliseconds
+     - `timestamp`: Response timestamp
+
+## Expected Response Format
+
+```json
+{
+  "session_id": "session_abc123",
+  "query": "What is AI?",
+  "answer": "AI stands for Artificial Intelligence, which is...",
+  "sources": [
+    {
+      "source": "internal",
+      "document_id": "doc_001",
+      "document_title": "AI Introduction",
+      "section": null,
+      "url": null,
+      "relevance_score": 0.85,
+      "snippet": "Artificial Intelligence (AI) is..."
+    }
+  ],
+  "confidence_score": 0.82,
+  "used_internal_kb": true,
+  "used_external_kb": false,
+  "processing_time_ms": 1234.5,
+  "timestamp": "2026-01-25T10:30:00.000Z"
+}
+```
+
+## Testing Scenarios
+
+### Scenario 1: Basic Query (No KB Content)
+
+**Request**:
+```json
+{
+  "query": "What is the weather today?",
+  "include_sources": true
+}
+```
+
+**Expected**:
+- `answer`: Generated by LLM (may indicate no specific KB content)
+- `sources`: Empty array (no internal KB matches)
+- `confidence_score`: Low (< 0.5)
+- `used_internal_kb`: `true` (searched, but no results)
+
+### Scenario 2: Query with KB Content
+
+**Prerequisites**: Add some documents to the KB first (Phase 5 feature)
+
+**Request**:
+```json
+{
+  "query": "What is our company policy on remote work?",
+  "include_sources": true
+}
+```
+
+**Expected**:
+- `answer`: Generated with context from KB
+- `sources`: Array with citations from KB documents
+- `confidence_score`: Higher (> 0.7 if good matches)
+- `used_internal_kb`: `true`
+
+### Scenario 3: Multi-turn Conversation
+
+**First Query**:
+```json
+{
+  "query": "What is machine learning?",
+  "session_id": "conv_001"
+}
+```
+
+**Second Query** (same session):
+```json
+{
+  "query": "What are its applications?",
+  "session_id": "conv_001",
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "What is machine learning?"
+    },
+    {
+      "role": "assistant",
+      "content": "Machine learning is..."
+    }
+  ]
+}
+```
+
+**Expected**:
+- Second answer should reference previous conversation
+- `session_id` remains the same
+- Context from first query influences second answer
+
+## Troubleshooting
+
+### Issue: "Vector store not initialized"
+
+**Solution**:
+- Check that vector store initialized during startup
+- Verify `./data/chroma` directory exists
+- Check logs for initialization errors
+
+### Issue: "OpenRouter API key is required"
+
+**Solution**:
+- Set `OPENROUTER_API_KEY` in `.env` file
+- Or set environment variable: `export OPENROUTER_API_KEY=your-key`
+- Restart the server
+
+### Issue: "500 Internal Server Error"
+
+**Check**:
+1. Server logs for error details
+2. Health endpoint: http://localhost:8000/api/v1/health
+3. Verify all dependencies installed
+4. Check API key is valid
+
+### Issue: Empty Sources Array
+
+**Possible Reasons**:
+- No documents in knowledge base yet (Phase 5 feature)
+- Query doesn't match any KB content
+- Vector store is empty
+
+**Solution**: This is expected if KB is empty. Add documents via KB management API (Phase 5).
+
+### Issue: Slow Response Times
+
+**Check**:
+- `processing_time_ms` in response
+- LLM API latency (OpenRouter)
+- Vector store search performance
+- Network connectivity
+
+**Expected**: < 5 seconds for internal KB queries (SC-001)
+
+## Sample Test Queries
+
+### Test Query 1: Simple Question
+```json
+{
+  "query": "Explain what RAG means",
+  "include_sources": true
+}
+```
+
+### Test Query 2: Technical Question
+```json
+{
+  "query": "How does vector search work?",
+  "include_sources": true
+}
+```
+
+### Test Query 3: Follow-up Question
+```json
+{
+  "query": "Can you give me an example?",
+  "session_id": "example_session",
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "What is semantic search?"
+    },
+    {
+      "role": "assistant",
+      "content": "Semantic search uses meaning..."
+    }
+  ]
+}
+```
+
+## Validation Checklist
+
+After testing via Swagger, verify:
+
+- ✅ Health endpoint returns `200 OK`
+- ✅ Chat endpoint accepts requests
+- ✅ Responses include `answer` field
+- ✅ Responses include `confidence_score` (0.0-1.0)
+- ✅ Responses include `sources` array (may be empty)
+- ✅ `used_internal_kb` is `true`
+- ✅ `processing_time_ms` is reasonable (< 10 seconds)
+- ✅ Session ID is returned (new or existing)
+- ✅ Multi-turn conversations maintain context
+
+## Next Steps
+
+1. **Add Test Data**: Use KB management API (Phase 5) to add documents
+2. **Test with Real Data**: Query against actual KB content
+3. **Performance Testing**: Measure response times
+4. **Phase 4**: Test external knowledge integration (Perplexity)
+
+## Quick Reference
+
+**Start Server**:
+```bash
+cd stock-analysis-ai
+conda activate agentic-kb
+uvicorn app.main:app --reload
+```
+
+**Swagger UI**: http://localhost:8000/docs  
+**Health Check**: http://localhost:8000/api/v1/health  
+**Chat Endpoint**: POST http://localhost:8000/api/v1/chat/query
+
+**Minimal Test Request**:
+```json
+{
+  "query": "Hello, how can you help me?"
+}
+```
+
+---
+
+**Status**: Ready for Swagger testing  
+**Phase 3**: ✅ Complete and tested

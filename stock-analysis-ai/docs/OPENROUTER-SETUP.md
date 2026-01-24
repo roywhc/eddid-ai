@@ -30,8 +30,9 @@ LLM_PROVIDER=openrouter
 OPENROUTER_API_KEY=sk-or-v1-your-api-key-here
 
 # Choose a model (OpenRouter format: provider/model)
-LLM_MODEL=openai/gpt-4-turbo
+LLM_MODEL=deepseek/deepseek-v3.2
 # Or use other models:
+# LLM_MODEL=openai/gpt-4-turbo
 # LLM_MODEL=anthropic/claude-3-opus
 # LLM_MODEL=google/gemini-pro
 # LLM_MODEL=meta-llama/llama-3-70b-instruct
@@ -42,6 +43,7 @@ LLM_MODEL=openai/gpt-4-turbo
 OpenRouter uses the format: `provider/model-name`
 
 Examples:
+- `deepseek/deepseek-v3.2` - DeepSeek V3.2 (default)
 - `openai/gpt-4-turbo` - OpenAI GPT-4 Turbo
 - `openai/gpt-3.5-turbo` - OpenAI GPT-3.5 Turbo
 - `anthropic/claude-3-opus` - Anthropic Claude 3 Opus

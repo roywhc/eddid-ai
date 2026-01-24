@@ -38,7 +38,7 @@ def initialize_knowledge_base(kb_dir: Path):
     return root_index
 
 
-def chat_mode(kb_dir: Path, openrouter_key: str = None, perplexity_key: str = None, model: str = "openai/gpt-4o-mini"):
+def chat_mode(kb_dir: Path, openrouter_key: str = None, perplexity_key: str = None, model: str = "deepseek/deepseek-v3.2"):
     """Run in interactive chat mode."""
     print("=" * 80)
     print("Stock Analysis Agent System")
@@ -86,7 +86,7 @@ def chat_mode(kb_dir: Path, openrouter_key: str = None, perplexity_key: str = No
             print(f"\nError: {e}")
 
 
-def single_query_mode(kb_dir: Path, query: str, openrouter_key: str = None, perplexity_key: str = None, model: str = "openai/gpt-4o-mini"):
+def single_query_mode(kb_dir: Path, query: str, openrouter_key: str = None, perplexity_key: str = None, model: str = "deepseek/deepseek-v3.2"):
     """Run a single query and exit."""
     # Initialize KB if needed
     initialize_knowledge_base(kb_dir)
@@ -120,7 +120,13 @@ def main():
     )
     parser.add_argument(
         "--query",
+        "-q",
         help="Single query to process (if not provided, runs in interactive mode)"
+    )
+    parser.add_argument(
+        "--prompt",
+        "-p",
+        help="Single query to process (alias for --query)"
     )
     parser.add_argument(
         "--openrouter-key",
@@ -132,8 +138,8 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="openai/gpt-4o-mini",
-        help="OpenRouter model to use (default: openai/gpt-4o-mini). See https://openrouter.ai/models"
+        default="deepseek/deepseek-v3.2",
+        help="OpenRouter model to use (default: deepseek/deepseek-v3.2). See https://openrouter.ai/models"
     )
     parser.add_argument(
         "--init-only",
@@ -162,10 +168,12 @@ def main():
         if args.init_only:
             initialize_knowledge_base(kb_dir)
             print("Knowledge base initialized successfully.")
-        elif args.query:
+        elif args.query or args.prompt:
+            # Use --prompt if provided, otherwise use --query
+            query = args.prompt or args.query
             single_query_mode(
                 kb_dir,
-                args.query,
+                query,
                 openrouter_key=args.openrouter_key,
                 perplexity_key=args.perplexity_key,
                 model=args.model
