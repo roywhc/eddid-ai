@@ -1,0 +1,553 @@
+openapi: 3.0.3
+info:
+  title: Agentic AI Knowledge Base System API
+  description: AI-powered chat system with internal knowledge base and Perplexity integration
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.example.com
+    description: Production server
+
+paths:
+  /api/v1/health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the system and its components
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /api/v1/chat/query:
+    post:
+      summary: Submit a chat query
+      description: Submit a query to the knowledge base system. The system will retrieve from internal KB and optionally query external sources.
+      operationId: chatQuery
+      tags:
+        - chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Chat response with answer and citations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/kb/documents:
+    post:
+      summary: Create a new knowledge base document
+      description: Add a new document to the knowledge base. The document will be chunked, embedded, and made searchable.
+      operationId: createDocument
+      tags:
+        - knowledge-base
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KBUpdateRequest'
+      responses:
+        '201':
+          description: Document created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBDocument'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/kb/documents/{doc_id}:
+    get:
+      summary: Get a knowledge base document
+      description: Retrieve a document from the knowledge base by ID
+      operationId: getDocument
+      tags:
+        - knowledge-base
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Document identifier
+      responses:
+        '200':
+          description: Document retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBDocument'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/kb/candidates:
+    get:
+      summary: Get pending knowledge base candidates
+      description: Retrieve pending candidate entries for review
+      operationId: getCandidates
+      tags:
+        - knowledge-base
+      parameters:
+        - name: kb_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Knowledge base identifier
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+          description: Maximum number of candidates to return
+      responses:
+        '200':
+          description: List of candidate entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KBCandidate'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/kb/candidates/{candidate_id}/approve:
+    post:
+      summary: Approve a knowledge base candidate
+      description: Approve a candidate entry and add it to the knowledge base
+      operationId: approveCandidate
+      tags:
+        - knowledge-base
+      parameters:
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Candidate identifier
+      responses:
+        '200':
+          description: Candidate approved and added to knowledge base
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBDocument'
+        '404':
+          description: Candidate not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid request (e.g., candidate already processed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+          description: Message role
+        content:
+          type: string
+          minLength: 1
+          description: Message content
+        timestamp:
+          type: string
+          format: date-time
+          description: Message timestamp
+
+    ChatRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: User query
+        session_id:
+          type: string
+          description: Session identifier for conversation continuity
+        include_sources:
+          type: boolean
+          default: true
+          description: Whether to include source citations
+        use_external_kb:
+          type: boolean
+          default: true
+          description: Whether to query external knowledge sources if internal KB confidence is low
+        conversation_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          description: Previous messages in the conversation
+
+    Citation:
+      type: object
+      required:
+        - source
+      properties:
+        source:
+          type: string
+          enum: [internal, external]
+          description: Source type
+        document_id:
+          type: string
+          description: Internal document identifier
+        document_title:
+          type: string
+          description: Document title
+        section:
+          type: string
+          description: Section within document
+        url:
+          type: string
+          format: uri
+          description: External URL
+        relevance_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Relevance score
+        snippet:
+          type: string
+          description: Content snippet from source
+
+    ChatResponse:
+      type: object
+      required:
+        - session_id
+        - query
+        - answer
+        - confidence_score
+        - used_internal_kb
+        - used_external_kb
+        - processing_time_ms
+        - timestamp
+      properties:
+        session_id:
+          type: string
+          description: Session identifier
+        query:
+          type: string
+          description: Original query
+        answer:
+          type: string
+          description: Generated answer
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+          description: Source citations
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score for the answer
+        used_internal_kb:
+          type: boolean
+          description: Whether internal knowledge base was used
+        used_external_kb:
+          type: boolean
+          description: Whether external knowledge sources were used
+        processing_time_ms:
+          type: number
+          format: float
+          description: Processing time in milliseconds
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+
+    KBUpdateRequest:
+      type: object
+      required:
+        - kb_id
+        - title
+        - content
+        - doc_type
+      properties:
+        doc_id:
+          type: string
+          description: Document ID (for updates, omit for new documents)
+        kb_id:
+          type: string
+          description: Knowledge base identifier
+        title:
+          type: string
+          minLength: 1
+          description: Document title
+        content:
+          type: string
+          minLength: 1
+          description: Document content
+        doc_type:
+          type: string
+          description: Document type
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags for categorization
+        language:
+          type: string
+          default: en
+          description: Document language
+        source_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Source URLs
+
+    KBDocument:
+      type: object
+      required:
+        - doc_id
+        - kb_id
+        - title
+        - doc_type
+        - content
+        - version
+        - created_at
+        - updated_at
+        - created_by
+        - language
+        - tags
+        - status
+      properties:
+        doc_id:
+          type: string
+          description: Document identifier
+        kb_id:
+          type: string
+          description: Knowledge base identifier
+        title:
+          type: string
+          description: Document title
+        doc_type:
+          type: string
+          description: Document type
+        content:
+          type: string
+          description: Document content
+        version:
+          type: string
+          description: Document version
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        created_by:
+          type: string
+          description: Creator identifier
+        approved_by:
+          type: string
+          nullable: true
+          description: Approver identifier
+        language:
+          type: string
+          description: Document language
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags
+        status:
+          type: string
+          enum: [active, archived, deleted]
+          description: Document status
+        chunks:
+          type: integer
+          nullable: true
+          description: Number of chunks
+
+    KBCandidate:
+      type: object
+      required:
+        - candidate_id
+        - original_query
+        - source_type
+        - title
+        - content
+        - suggested_kb_id
+        - extracted_on
+        - status
+        - hit_count
+      properties:
+        candidate_id:
+          type: string
+          description: Candidate identifier
+        original_query:
+          type: string
+          description: Original user query
+        source_type:
+          type: string
+          description: Source type
+        title:
+          type: string
+          description: Suggested title
+        content:
+          type: string
+          description: Candidate content
+        suggested_kb_id:
+          type: string
+          description: Suggested knowledge base
+        suggested_category:
+          type: string
+          nullable: true
+          description: Suggested category
+        external_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: External source URLs
+        extracted_on:
+          type: string
+          format: date-time
+          description: Extraction timestamp
+        status:
+          type: string
+          enum: [pending, approved, rejected, modified]
+          description: Review status
+        reviewed_by:
+          type: string
+          nullable: true
+          description: Reviewer identifier
+        review_notes:
+          type: string
+          nullable: true
+          description: Review notes
+        hit_count:
+          type: integer
+          minimum: 1
+          description: Number of times query pattern occurred
+
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+        - components
+        - version
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: Overall system status
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+        components:
+          type: object
+          additionalProperties:
+            type: string
+          description: Status of individual components
+        version:
+          type: string
+          description: System version
+
+    Error:
+      type: object
+      required:
+        - error
+        - timestamp
+      properties:
+        error:
+          type: string
+          description: Error message
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details

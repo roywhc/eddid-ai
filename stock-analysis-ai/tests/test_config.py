@@ -19,6 +19,8 @@ def test_default_values():
 
 def test_allowed_origins():
     """Test allowed origins configuration"""
-    assert isinstance(settings.allowed_origins, list)
-    assert len(settings.allowed_origins) > 0
+    # allowed_origins is a string, allowed_origins_list is the parsed list
+    assert isinstance(settings.allowed_origins, str)
+    assert isinstance(settings.allowed_origins_list, list)
+    assert len(settings.allowed_origins_list) > 0
 

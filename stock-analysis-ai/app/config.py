@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     # Vector Store
     vector_store_type: VectorStoreType = VectorStoreType.CHROMADB
-    chroma_persist_dir: str = "/tmp/chroma"
+    chroma_persist_dir: str = "./data/chroma"
     
     # pgvector (if using)
     pgvector_host: Optional[str] = None

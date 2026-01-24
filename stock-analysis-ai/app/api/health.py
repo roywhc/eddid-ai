@@ -10,9 +10,14 @@ async def health_check() -> HealthStatus:
     
     components = {}
     
-    # Check vector store (will be implemented in Step 2)
+    # Check vector store
     try:
-        # Placeholder - will be implemented in Step 2
+        from app.db.vector_store import get_vector_store_instance
+        vector_store = get_vector_store_instance()
+        health = await vector_store.health_check()
+        components["vector_db"] = "healthy" if health else "degraded"
+    except RuntimeError:
+        # Vector store not initialized yet
         components["vector_db"] = "not_initialized"
     except Exception as e:
         components["vector_db"] = f"error: {str(e)}"

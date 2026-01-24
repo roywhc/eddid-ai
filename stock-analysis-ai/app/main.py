@@ -9,6 +9,7 @@ import os
 from app.config import settings
 from app.utils.logger import setup_logging
 from app.db.metadata_store import init_db
+from app.db.vector_store import init_vector_store
 from app.api import chat, kb_management, health
 
 # Setup logging first
@@ -35,6 +36,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         raise
+    
+    try:
+        await init_vector_store()
+        logger.info("Vector store initialized")
+    except Exception as e:
+        logger.error(f"Vector store initialization failed: {e}")
+        # Don't raise - allow app to start even if vector store fails
+        logger.warning("Continuing without vector store - some features may be unavailable")
     
     yield
     
