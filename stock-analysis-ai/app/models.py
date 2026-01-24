@@ -13,7 +13,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=5000)
     session_id: Optional[str] = None
-    include_sources: bool = True
+    include_sources: bool = False  # Default to False - sources not included in response by default
     use_external_kb: bool = True
     conversation_history: List[ChatMessage] = []
 
@@ -114,7 +114,8 @@ class ExternalKnowledgeResult(BaseModel):
     """External knowledge result"""
     answer: str
     citations: List[Dict[str, str]]
-    raw_response: Dict[str, Any]
+    raw_response: Dict[str, Any] = {}
+    query_time_ms: float = 0.0
 
 class KBUpdatableContent(BaseModel):
     """Content updatable in KB"""
