@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  agentic-kb-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentic-kb-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=development
+      - DEBUG=true
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      # Vector Store
+      - VECTOR_STORE_TYPE=chromadb
+      - CHROMADB_PATH=./data/chroma
+      # Database
+      - DATABASE_URL=sqlite:///./data/metadata.db
+      # LLM Configuration (set in .env file)
+      - LLM_PROVIDER=openrouter
+      - LLM_MODEL=deepseek/deepseek-v3.2
+      # Metrics
+      - METRICS_ENABLED=true
+      # AIOps Logging
+      - AIOPS_LOGGING_ENABLED=true
+      - AIOPS_LOG_DIR=./aiops
+    volumes:
+      # Persist data
+      - ./data:/app/data
+      - ./aiops:/app/aiops
+      # Mount code for development (optional - comment out for production)
+      # - .:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - agentic-kb-network
+
+networks:
+  agentic-kb-network:
+    driver: bridge

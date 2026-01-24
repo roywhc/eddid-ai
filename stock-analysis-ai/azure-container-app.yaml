@@ -1,0 +1,98 @@
+# Azure Container Apps Configuration
+# This file defines the container app configuration for Azure deployment
+
+apiVersion: 2022-10-01
+kind: containerApp
+metadata:
+  name: agentic-kb-system
+  resourceGroup: ${RESOURCE_GROUP}
+properties:
+  managedEnvironmentId: ${MANAGED_ENVIRONMENT_ID}
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8000
+      transport: http
+      allowInsecure: false
+    registries:
+      - server: ${ACR_SERVER}
+        identity: system
+    secrets:
+      - name: openrouter-api-key
+        value: ${OPENROUTER_API_KEY}
+      - name: perplexity-api-key
+        value: ${PERPLEXITY_API_KEY}
+    dapr:
+      enabled: false
+  template:
+    containers:
+      - name: agentic-kb-api
+        image: ${ACR_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}
+        env:
+          - name: ENV
+            value: "production"
+          - name: API_HOST
+            value: "0.0.0.0"
+          - name: API_PORT
+            value: "8000"
+          - name: VECTOR_STORE_TYPE
+            value: "chromadb"
+          - name: CHROMADB_PATH
+            value: "/app/data/chroma"
+          - name: DATABASE_URL
+            value: "sqlite:////app/data/metadata.db"
+          - name: LLM_PROVIDER
+            value: "openrouter"
+          - name: LLM_MODEL
+            value: "deepseek/deepseek-v3.2"
+          - name: METRICS_ENABLED
+            value: "true"
+          - name: AIOPS_LOGGING_ENABLED
+            value: "true"
+          - name: AIOPS_LOG_DIR
+            value: "/app/aiops"
+          # Secrets
+          - name: OPENROUTER_API_KEY
+            secretRef: openrouter-api-key
+          - name: PERPLEXITY_API_KEY
+            secretRef: perplexity-api-key
+        resources:
+          cpu: 1.0
+          memory: 2Gi
+        probes:
+          - type: liveness
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          - type: readiness
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          - type: startup
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+    scale:
+      minReplicas: 1
+      maxReplicas: 10
+      rules:
+        - name: http-rule
+          http:
+            metadata:
+              concurrentRequests: "100"
+    volumes:
+      - name: data-volume
+        storageType: ephemeral
+        mountPath: /app/data
