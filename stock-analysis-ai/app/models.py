@@ -99,7 +99,24 @@ class KBUpdateRequest(BaseModel):
     doc_type: str
     tags: List[str] = []
     language: str = "en"
+    source_type: Optional[str] = "manual"
     source_urls: List[str] = []
+
+class CandidateApproveRequest(BaseModel):
+    """Request to approve a candidate"""
+    reviewer: str
+    notes: Optional[str] = None
+
+class CandidateRejectRequest(BaseModel):
+    """Request to reject a candidate"""
+    reviewer: str
+    notes: Optional[str] = None
+
+class CandidateModifyRequest(BaseModel):
+    """Request to modify and approve a candidate"""
+    reviewer: str
+    notes: Optional[str] = None
+    document: KBUpdateRequest
 
 # ===== Internal Models =====
 

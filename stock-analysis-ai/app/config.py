@@ -58,10 +58,14 @@ class Settings(BaseSettings):
     # Embeddings
     embeddings_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embeddings_type: EmbeddingsType = EmbeddingsType.SENTENCE_TRANSFORMERS
+    
+    # Document Chunking
+    chunk_size: int = 512
+    chunk_overlap: int = 50
 
     # LLM
     llm_provider: LLMProvider = LLMProvider.OPENROUTER
-    llm_model: str = "openai/gpt-4-turbo"  # OpenRouter format: provider/model
+    llm_model: str = "deepseek/deepseek-v3.2"  # OpenRouter format: provider/model
     llm_temperature: float = 0.7
     openai_api_key: Optional[str] = None
     azure_openai_api_key: Optional[str] = None
@@ -96,6 +100,11 @@ class Settings(BaseSettings):
     # Data Retention
     log_retention_days: int = 30
     chat_history_retention_days: int = 90
+    
+    # AIOps Logging
+    aiops_logging_enabled: bool = True
+    aiops_log_dir: str = "./aiops"
+    aiops_retention_days: int = 7  # Keep AIOps logs for 7 days by default
 
     class Config:
         env_file = ".env"

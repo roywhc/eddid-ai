@@ -6,7 +6,9 @@ from openai import AsyncOpenAI
 from app.config import settings, LLMProvider
 from app.utils.stock_analysis_detector import StockAnalysisDetector
 from app.utils.prompt_templates import PromptTemplates
+from app.utils.aiops_logger import get_aiops_logger
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,7 @@ class LLMService:
         self.provider = settings.llm_provider
         self.model = settings.llm_model
         self.temperature = settings.llm_temperature
+        self.aiops_logger = get_aiops_logger()
         self._initialize_client()
     
     def _initialize_client(self):
@@ -220,6 +223,12 @@ class LLMService:
         # Build system prompt with context (pass query for stock analysis detection)
         system_prompt = self._build_rag_system_prompt(context, external_context, query=query)
         
+        # Check if stock analysis query
+        is_stock_analysis = (
+            StockAnalysisDetector.is_stock_analysis_query(query) and
+            not StockAnalysisDetector.has_explicit_requirements(query)
+        )
+        
         # Build messages with conversation history
         messages = []
         
@@ -237,10 +246,31 @@ class LLMService:
         # Add current query
         messages.append({"role": "user", "content": query})
         
+        # Log LLM prompt
+        self.aiops_logger.log_llm_prompt(
+            system_prompt=system_prompt,
+            messages=messages,
+            model=self.model,
+            temperature=self.temperature,
+            is_stock_analysis=is_stock_analysis
+        )
+        
         # Generate answer
         try:
+            llm_start = time.time()
             answer = await self.chat(messages, temperature=self.temperature)
+            llm_time = (time.time() - llm_start) * 1000
             logger.debug(f"Generated answer for query: {query[:50]}...")
+            
+            # Log LLM response
+            token_usage = getattr(self, '_last_token_usage', None)
+            self.aiops_logger.log_llm_response(
+                response=answer,
+                model=self.model,
+                response_time_ms=llm_time,
+                token_usage=token_usage
+            )
+            
             return answer
         except Exception as e:
             logger.error(f"Error generating answer: {e}", exc_info=True)
