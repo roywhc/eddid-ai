@@ -82,7 +82,7 @@ async def health_check() -> HealthStatus:
     
     return HealthStatus(
         status=status,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.utcnow().isoformat(),
         components=components,
         version="1.0.0"
     )

@@ -189,24 +189,22 @@ class RAGOrchestrator:
             # Step 5: Extract citations from both internal and external sources
             citations = self._extract_citations(retrieval_results)
             if external_result:
-                external_citations = self.perplexity_service.convert_to_citations(
-                    external_result.citations
-                )
-                citations.extend(external_citations)
+                # external_result.citations are already Citation objects
+                citations.extend(external_result.citations)
                 logger.debug(f"Combined {len(citations)} citations (internal + external)")
             
             # Step 6: Store messages in session history
             user_message = ChatMessage(
                 role="user",
                 content=request.query,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow().isoformat()
             )
             self.session_manager.add_message(session_id, user_message)
             
             assistant_message = ChatMessage(
                 role="assistant",
                 content=answer,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow().isoformat()
             )
             self.session_manager.add_message(session_id, assistant_message)
             
@@ -247,7 +245,7 @@ class RAGOrchestrator:
                 used_internal_kb=len(retrieval_results) > 0,
                 used_external_kb=used_external_kb,
                 processing_time_ms=processing_time,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow().isoformat()
             )
             
             # Log final response
@@ -331,3 +329,175 @@ class RAGOrchestrator:
             citations.append(citation)
         
         return citations
+    
+    async def process_query_stream(self, request: ChatRequest):
+        """
+        Process a chat query with streaming response
+        
+        Args:
+            request: ChatRequest with query and optional session info
+        
+        Yields:
+            Dictionary chunks with streaming data
+        """
+        start_time = time.time()
+        session_id = request.session_id
+        
+        try:
+            # Get or create session
+            if not session_id:
+                session_id = self.session_manager.create_session()
+                logger.debug(f"Created new session: {session_id}")
+            else:
+                _ = self.session_manager.get_history(session_id)
+            
+            # Get conversation history
+            conversation_history = request.conversation_history or []
+            if not conversation_history:
+                conversation_history = self.session_manager.get_history(session_id)
+            
+            # Step 1: Retrieve from internal KB
+            kb_id = "default_kb"
+            logger.debug(f"Retrieving from KB: {kb_id}")
+            
+            kb_search_start = time.time()
+            retrieval_results = await self.retrieval_service.retrieve(
+                query=request.query,
+                kb_id=kb_id,
+                top_k=5
+            )
+            kb_search_duration = time.time() - kb_search_start
+            
+            # Step 2: Calculate confidence score
+            confidence_score = self.confidence_service.calculate_confidence(
+                retrieval_results,
+                request.query
+            )
+            
+            # Step 3: Query external knowledge if needed
+            external_result = None
+            used_external_kb = False
+            
+            should_query_external = (
+                request.use_external_kb and 
+                (confidence_score < settings.kb_confidence_threshold or len(retrieval_results) == 0)
+            )
+            
+            if should_query_external:
+                try:
+                    logger.info(f"Confidence below threshold ({confidence_score:.2f} < {settings.kb_confidence_threshold}), querying external knowledge")
+                    additional_context = None
+                    if retrieval_results:
+                        context_text = "\n".join([r.content[:500] for r in retrieval_results[:3]])
+                        additional_context = f"Internal knowledge base context:\n{context_text}"
+                    
+                    external_result = await self.perplexity_service.search(
+                        query=request.query,
+                        additional_context=additional_context
+                    )
+                    used_external_kb = True
+                except Exception as e:
+                    logger.warning(f"External knowledge query failed: {e}")
+                    used_external_kb = False
+            
+            # Step 4: Stream answer using LLM
+            answer_chunks = []
+            async for chunk in self.llm_service.generate_answer_stream(
+                query=request.query,
+                context=retrieval_results,
+                conversation_history=conversation_history,
+                external_context=external_result
+            ):
+                answer_chunks.append(chunk)
+                # Yield each chunk as it arrives
+                yield {
+                    "type": "chunk",
+                    "content": chunk,
+                    "session_id": session_id
+                }
+            
+            # Combine all chunks into full answer
+            full_answer = "".join(answer_chunks)
+            
+            # Step 5: Extract citations
+            citations = self._extract_citations(retrieval_results)
+            if external_result:
+                # external_result.citations are already Citation objects
+                citations.extend(external_result.citations)
+            
+            # Step 6: Store messages in session history
+            user_message = ChatMessage(
+                role="user",
+                content=request.query,
+                timestamp=datetime.utcnow().isoformat()
+            )
+            self.session_manager.add_message(session_id, user_message)
+            
+            assistant_message = ChatMessage(
+                role="assistant",
+                content=full_answer,
+                timestamp=datetime.utcnow().isoformat()
+            )
+            self.session_manager.add_message(session_id, assistant_message)
+            
+            # Step 7: Calculate processing time
+            processing_time = (time.time() - start_time) * 1000
+            
+            # Step 8: Yield final response metadata
+            # Serialize citations properly
+            citation_dicts = []
+            for c in citations:
+                if hasattr(c, 'model_dump'):
+                    citation_dicts.append(c.model_dump())
+                elif hasattr(c, 'dict'):
+                    citation_dicts.append(c.dict())
+                elif isinstance(c, dict):
+                    citation_dicts.append(c)
+                else:
+                    # Fallback: extract common fields
+                    citation_dicts.append({
+                        "source": getattr(c, 'source', None),
+                        "document_id": getattr(c, 'document_id', None),
+                        "document_title": getattr(c, 'document_title', None),
+                        "url": getattr(c, 'url', None),
+                        "relevance_score": getattr(c, 'relevance_score', None)
+                    })
+            
+            # Step 9: Generate candidate entry if external KB was used
+            candidate_id = None
+            if used_external_kb and external_result:
+                try:
+                    candidate_id = self.kb_curator.generate_and_save_candidate(
+                        query=request.query,
+                        answer=full_answer,
+                        citations=citations,
+                        kb_id=kb_id
+                    )
+                    if candidate_id:
+                        logger.info(f"Generated candidate entry: {candidate_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to generate candidate entry: {e}")
+                    # Don't fail the request if candidate generation fails
+            
+            yield {
+                "type": "complete",
+                "session_id": session_id,
+                "query": request.query,
+                "answer": full_answer,
+                "sources": citation_dicts if request.include_sources else [],
+                "confidence_score": confidence_score,
+                "used_internal_kb": len(retrieval_results) > 0,
+                "used_external_kb": used_external_kb,
+                "processing_time_ms": processing_time,
+                "timestamp": datetime.utcnow().isoformat(),
+                "candidate_id": candidate_id
+            }
+        
+        except Exception as e:
+            logger.error(f"Error processing streaming query: {e}", exc_info=True)
+            yield {
+                "type": "error",
+                "message": str(e),
+                "session_id": session_id if 'session_id' in locals() else None
+            }
+    

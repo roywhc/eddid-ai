@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     llm_provider: LLMProvider = LLMProvider.OPENROUTER
     llm_model: str = "deepseek/deepseek-v3.2"  # OpenRouter format: provider/model
     llm_temperature: float = 0.7
+    llm_timeout: int = 180  # Extended timeout to 180 seconds (3 minutes) for long responses
     openai_api_key: Optional[str] = None
     azure_openai_api_key: Optional[str] = None
     # OpenRouter
@@ -112,7 +113,10 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = False
+        # Allow environment variables to override settings
+        # Paths starting with / will be treated specially on Windows
 
     @property
     def pgvector_url(self) -> str:

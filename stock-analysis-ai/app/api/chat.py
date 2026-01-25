@@ -1,8 +1,11 @@
 """Chat API endpoint for RAG queries"""
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from app.models import ChatRequest, ChatResponse
 from app.services.rag_orchestrator import RAGOrchestrator
 import logging
+import json
+from typing import AsyncGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +73,65 @@ async def chat_query(request: ChatRequest) -> ChatResponse:
         raise
     except Exception as e:
         logger.error(f"Error processing chat query: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+@router.post("/query/stream")
+async def chat_query_stream(request: ChatRequest):
+    """
+    Streaming chat query endpoint with RAG
+    
+    Returns Server-Sent Events (SSE) stream with answer chunks as they are generated.
+    """
+    try:
+        # Validate request
+        if not request.query or not request.query.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Query cannot be empty"
+            )
+        
+        if len(request.query) > 5000:
+            raise HTTPException(
+                status_code=400,
+                detail="Query exceeds maximum length of 5000 characters"
+            )
+        
+        logger.info(f"Processing streaming chat query (session: {request.session_id or 'new'})")
+        
+        async def generate_stream() -> AsyncGenerator[str, None]:
+            """Generate SSE stream"""
+            try:
+                orchestrator = get_orchestrator()
+                
+                # Process query and stream response
+                async for chunk in orchestrator.process_query_stream(request):
+                    # Format as SSE
+                    yield f"data: {json.dumps(chunk)}\n\n"
+                
+                # Send end marker
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                logger.error(f"Error in streaming: {e}", exc_info=True)
+                error_chunk = {"type": "error", "message": str(e)}
+                yield f"data: {json.dumps(error_chunk)}\n\n"
+        
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing streaming chat query: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"

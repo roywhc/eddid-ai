@@ -21,7 +21,6 @@
         Send
       </Button>
     </form>
-    <p v-if="error" class="mt-1 text-sm text-red-600">{{ error }}</p>
   </div>
 </template>
 
@@ -47,25 +46,14 @@ const emit = defineEmits<{
 }>()
 
 const inputValue = ref('')
-const error = ref<string | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 const canSubmit = computed(() => {
   const validation = validateQuery(inputValue.value)
-  if (!validation.valid) {
-    error.value = validation.error || null
-    return false
-  }
-  error.value = null
   return validation.valid
 })
 
 watch(inputValue, () => {
-  // Clear error when user types
-  if (error.value) {
-    error.value = null
-  }
-  
   // Auto-resize textarea
   nextTick(() => {
     if (textareaRef.value) {
@@ -108,8 +96,7 @@ function handleNewLine() {
 
 const inputClasses = computed(() => {
   const base = 'flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none'
-  const errorClass = error.value ? 'border-red-500' : 'border-gray-300'
   const disabledClass = props.disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
-  return `${base} ${errorClass} ${disabledClass}`
+  return `${base} border-gray-300 ${disabledClass}`
 })
 </script>

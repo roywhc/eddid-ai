@@ -100,10 +100,11 @@ class KBCuratorService:
                 if existing:
                     # Update hit count
                     existing.hit_count += 1
-                    logger.debug(f"Updated existing candidate {existing.candidate_id} (hit_count: {existing.hit_count})")
+                    candidate_id = existing.candidate_id  # Store before closing session
+                    logger.debug(f"Updated existing candidate {candidate_id} (hit_count: {existing.hit_count})")
                     session.commit()
                     session.close()
-                    return existing.candidate_id
+                    return candidate_id
                 
                 # Create new candidate entry
                 db_candidate = KBCandidateRecord(

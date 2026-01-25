@@ -12,7 +12,7 @@
       </div>
 
       <!-- Feature Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
         <Card variant="elevated" padding="lg" class="hover:shadow-xl transition-shadow cursor-pointer" @click="navigateTo('/chat')">
           <div class="text-center">
             <div class="text-4xl mb-4">💬</div>
@@ -69,6 +69,9 @@
           </Button>
           <Button variant="outline" size="lg" @click="navigateTo('/monitoring')">
             View Monitoring
+          </Button>
+          <Button variant="outline" size="lg" @click="navigateTo('/vector-store')">
+            Vector Store
           </Button>
         </div>
       </div>

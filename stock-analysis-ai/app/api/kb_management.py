@@ -7,7 +7,8 @@ from app.models import (
 )
 from app.services.document_service import DocumentService
 from app.services.candidate_review_service import CandidateReviewService
-from typing import List, Optional
+from app.db.vector_store import get_vector_store_instance
+from typing import List, Optional, Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -232,4 +233,88 @@ async def reimport_candidate(candidate_id: str, request: CandidateApproveRequest
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error re-importing candidate: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# ===== Vector Store Management Endpoints =====
+
+@router.get("/vector-store/stats")
+async def get_vector_store_stats() -> Dict[str, Any]:
+    """Get vector store statistics"""
+    try:
+        vector_store = get_vector_store_instance()
+        stats = await vector_store.get_stats()
+        return stats
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=f"Vector store not available: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error getting vector store stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.get("/vector-store/health")
+async def get_vector_store_health() -> Dict[str, Any]:
+    """Get vector store health status"""
+    try:
+        vector_store = get_vector_store_instance()
+        is_healthy = await vector_store.health_check()
+        return {
+            "status": "healthy" if is_healthy else "degraded",
+            "available": True
+        }
+    except RuntimeError:
+        return {
+            "status": "not_initialized",
+            "available": False
+        }
+    except Exception as e:
+        logger.error(f"Error checking vector store health: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "available": False,
+            "error": str(e)
+        }
+
+@router.post("/vector-store/documents/{doc_id}/reindex", status_code=200)
+async def reindex_document(doc_id: str) -> Dict[str, Any]:
+    """
+    Re-index a document in the vector store
+    
+    This will re-chunk and re-embed the document, replacing any existing chunks.
+    Useful if the document was created without vector store or needs to be updated.
+    """
+    try:
+        service = get_document_service()
+        document = await service.reindex_document(doc_id)
+        logger.info(f"Document {doc_id} re-indexed in vector store")
+        return {
+            "success": True,
+            "doc_id": doc_id,
+            "chunk_count": document.chunks if document.chunks else 0,
+            "message": f"Document {doc_id} successfully re-indexed"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error re-indexing document {doc_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.delete("/vector-store/documents/{doc_id}", status_code=200)
+async def remove_document_from_vector_store(doc_id: str) -> Dict[str, Any]:
+    """
+    Remove a document's chunks from the vector store without deleting the document
+    
+    This removes the document from semantic search but keeps the document metadata.
+    """
+    try:
+        service = get_document_service()
+        await service.remove_from_vector_store(doc_id)
+        logger.info(f"Document {doc_id} removed from vector store")
+        return {
+            "success": True,
+            "doc_id": doc_id,
+            "message": f"Document {doc_id} removed from vector store"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error removing document {doc_id} from vector store: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

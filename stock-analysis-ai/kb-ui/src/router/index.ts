@@ -26,6 +26,11 @@ const routes: RouteRecordRaw[] = [
     path: '/monitoring',
     name: 'Monitoring',
     component: () => import('../views/MonitoringView.vue')
+  },
+  {
+    path: '/vector-store',
+    name: 'VectorStore',
+    component: () => import('../views/VectorStoreView.vue')
   }
 ]
 

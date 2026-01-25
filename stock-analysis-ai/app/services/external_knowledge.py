@@ -99,8 +99,11 @@ class PerplexityService:
             # Extract answer
             answer = response.choices[0].message.content
             
-            # Extract citations
-            citations = self._extract_citations(response)
+            # Extract citations (raw format from Perplexity)
+            raw_citations = self._extract_citations(response)
+            
+            # Convert to Citation objects
+            citations = self.convert_to_citations(raw_citations)
             
             query_time = (time.time() - start_time) * 1000  # Convert to milliseconds
             

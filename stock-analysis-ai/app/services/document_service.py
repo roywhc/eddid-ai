@@ -31,11 +31,12 @@ class DocumentService:
         logger.info("DocumentService initialized")
     
     def _get_vector_store(self):
-        """Get or initialize vector store"""
+        """Get or initialize vector store (auto-initializes if needed)"""
         if self.vector_store is None:
             try:
                 self.vector_store = get_vector_store_instance()
-            except RuntimeError as e:
+                logger.debug("Vector store auto-initialized in DocumentService")
+            except Exception as e:
                 logger.warning(f"Vector store not available: {e}")
                 return None
         return self.vector_store
@@ -537,6 +538,207 @@ class DocumentService:
                 ))
             
             return documents, total_count
+        
+        finally:
+            db.close()
+    
+    async def reindex_document(self, doc_id: str) -> KBDocument:
+        """
+        Re-index a document in the vector store
+        
+        This will re-chunk and re-embed the document, replacing any existing chunks.
+        Useful if the document was created without vector store or needs to be updated.
+        
+        Args:
+            doc_id: Document ID
+        
+        Returns:
+            Updated KBDocument
+        
+        Raises:
+            ValueError: If document not found
+        """
+        db = SessionLocal()
+        try:
+            # Get document
+            doc_record = db.query(DocumentRecord).filter(
+                DocumentRecord.doc_id == doc_id,
+                DocumentRecord.status != "deleted"
+            ).first()
+            
+            if not doc_record:
+                raise ValueError(f"Document not found: {doc_id}")
+            
+            if not doc_record.content:
+                raise ValueError(f"Document {doc_id} has no content to re-index")
+            
+            logger.info(f"Re-indexing document: {doc_id}")
+            
+            # Get existing chunk IDs
+            old_chunk_ids = doc_record.chunk_ids or []
+            
+            # Delete old chunks from vector store
+            if old_chunk_ids:
+                vector_store = self._get_vector_store()
+                if vector_store:
+                    await vector_store.delete_chunks(old_chunk_ids)
+                    logger.info(f"Deleted {len(old_chunk_ids)} old chunks from vector store")
+            
+            # Mark old chunks as deleted in database
+            db.query(ChunkRecord).filter(
+                ChunkRecord.doc_id == doc_id
+            ).update({"status": "deleted"})
+            
+            # Re-chunk document
+            metadata = {
+                "doc_type": doc_record.doc_type,
+                "version": doc_record.version,
+                "language": "en",  # Default, could be stored in document
+                "tags": doc_record.tags or [],
+                "source_type": doc_record.source_type,
+                "source_urls": doc_record.source_urls or [],
+                "created_by": doc_record.created_by,
+                "updated_by": doc_record.created_by,
+                "status": "active"
+            }
+            
+            chunks = self.chunker.chunk_document(
+                content=doc_record.content,
+                doc_id=doc_id,
+                kb_id=doc_record.kb_id,
+                metadata=metadata
+            )
+            
+            logger.info(f"Re-chunked document into {len(chunks)} chunks")
+            
+            # Generate embeddings and store in vector DB
+            vector_store = self._get_vector_store()
+            if vector_store is None:
+                logger.warning("Vector store not available. Document will be re-indexed without vector embeddings.")
+                chunk_ids = [chunk["chunk_id"] for chunk in chunks]
+            else:
+                chunk_ids = await vector_store.add_chunks(chunks)
+                logger.info(f"Added {len(chunk_ids)} new chunks to vector store")
+            
+            # Create new chunk records
+            for chunk, chunk_id in zip(chunks, chunk_ids):
+                chunk_record = ChunkRecord(
+                    chunk_id=chunk_id,
+                    doc_id=doc_id,
+                    kb_id=doc_record.kb_id,
+                    doc_type=doc_record.doc_type,
+                    version=doc_record.version,
+                    section_title=chunk["metadata"].get("section_title"),
+                    section_path=chunk["metadata"].get("section_path"),
+                    language=metadata.get("language", "en"),
+                    owner=doc_record.created_by,
+                    tags=metadata.get("tags", []),
+                    source_type=doc_record.source_type,
+                    source_urls=metadata.get("source_urls", []),
+                    status="active"
+                )
+                db.add(chunk_record)
+            
+            # Update document record
+            doc_record.chunk_ids = chunk_ids
+            doc_record.updated_at = datetime.utcnow()
+            
+            db.commit()
+            logger.info(f"Document {doc_id} re-indexed successfully")
+            
+            # Record metrics
+            self.metrics.increment_counter("documents_reindexed_total")
+            
+            # Convert to KBDocument
+            return KBDocument(
+                doc_id=doc_record.doc_id,
+                kb_id=doc_record.kb_id,
+                title=doc_record.title,
+                doc_type=doc_record.doc_type,
+                content=doc_record.content,
+                version=doc_record.version,
+                status=doc_record.status,
+                created_at=doc_record.created_at,
+                updated_at=doc_record.updated_at,
+                created_by=doc_record.created_by,
+                approved_by=doc_record.approved_by,
+                language="en",  # Default, could be stored in document
+                tags=doc_record.tags or [],
+                chunks=len(chunk_ids)
+            )
+        
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error re-indexing document: {e}", exc_info=True)
+            raise
+        
+        finally:
+            db.close()
+    
+    async def remove_from_vector_store(self, doc_id: str) -> bool:
+        """
+        Remove a document's chunks from the vector store without deleting the document
+        
+        This removes the document from semantic search but keeps the document metadata.
+        
+        Args:
+            doc_id: Document ID
+        
+        Returns:
+            True if successful
+        
+        Raises:
+            ValueError: If document not found
+        """
+        db = SessionLocal()
+        try:
+            # Get document
+            doc_record = db.query(DocumentRecord).filter(
+                DocumentRecord.doc_id == doc_id,
+                DocumentRecord.status != "deleted"
+            ).first()
+            
+            if not doc_record:
+                raise ValueError(f"Document not found: {doc_id}")
+            
+            logger.info(f"Removing document {doc_id} from vector store")
+            
+            # Get chunk IDs
+            chunk_ids = doc_record.chunk_ids or []
+            
+            if not chunk_ids:
+                logger.info(f"Document {doc_id} has no chunks in vector store")
+                return True
+            
+            # Delete chunks from vector store
+            vector_store = self._get_vector_store()
+            if vector_store:
+                await vector_store.delete_chunks(chunk_ids)
+                logger.info(f"Deleted {len(chunk_ids)} chunks from vector store")
+            else:
+                logger.warning("Vector store not available. Skipping chunk deletion.")
+            
+            # Clear chunk_ids from document record
+            doc_record.chunk_ids = []
+            doc_record.updated_at = datetime.utcnow()
+            
+            # Mark chunks as deleted in database (but don't delete the records)
+            db.query(ChunkRecord).filter(
+                ChunkRecord.doc_id == doc_id
+            ).update({"status": "deleted"})
+            
+            db.commit()
+            logger.info(f"Document {doc_id} removed from vector store successfully")
+            
+            # Record metrics
+            self.metrics.increment_counter("documents_removed_from_vector_store_total")
+            
+            return True
+        
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error removing document from vector store: {e}", exc_info=True)
+            raise
         
         finally:
             db.close()

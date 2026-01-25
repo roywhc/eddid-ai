@@ -158,6 +158,50 @@ export const useDocumentsStore = defineStore('documents', () => {
     kbIdFilter.value = null
   }
 
+  /**
+   * Re-index a document in the vector store
+   */
+  async function reindexDocument(docId: string): Promise<boolean> {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      await documentsService.reindexDocument(docId)
+      await loadDocuments() // Refresh list
+      if (currentDocument.value?.doc_id === docId) {
+        await loadDocument(docId) // Refresh current document
+      }
+      return true
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || err.message || 'Failed to re-index document'
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
+   * Remove a document from the vector store (without deleting the document)
+   */
+  async function removeFromVectorStore(docId: string): Promise<boolean> {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      await documentsService.removeFromVectorStore(docId)
+      await loadDocuments() // Refresh list
+      if (currentDocument.value?.doc_id === docId) {
+        await loadDocument(docId) // Refresh current document
+      }
+      return true
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || err.message || 'Failed to remove document from vector store'
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   return {
     documents: computed(() => documents.value),
     currentDocument: computed(() => currentDocument.value),
@@ -173,6 +217,8 @@ export const useDocumentsStore = defineStore('documents', () => {
     createDocument,
     updateDocument,
     deleteDocument,
+    reindexDocument,
+    removeFromVectorStore,
     setSearchQuery,
     setKbIdFilter,
     clearFilters

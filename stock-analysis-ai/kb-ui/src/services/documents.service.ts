@@ -16,6 +16,7 @@ export interface KBDocument {
   tags: string[]
   status: string
   chunks?: number
+  chunk_ids?: string[] | null
 }
 
 export interface DocumentsListResponse {
@@ -67,5 +68,21 @@ export const documentsService = {
    */
   async deleteDocument(docId: string): Promise<void> {
     await apiClient.delete(`/kb/documents/${docId}`)
+  },
+
+  /**
+   * Re-index a document in the vector store
+   */
+  async reindexDocument(docId: string): Promise<{ success: boolean; doc_id: string; chunk_count: number; message: string }> {
+    const response = await apiClient.post(`/kb/vector-store/documents/${docId}/reindex`)
+    return response.data
+  },
+
+  /**
+   * Remove a document from the vector store (without deleting the document)
+   */
+  async removeFromVectorStore(docId: string): Promise<{ success: boolean; doc_id: string; message: string }> {
+    const response = await apiClient.delete(`/kb/vector-store/documents/${docId}`)
+    return response.data
   }
 }

@@ -85,3 +85,17 @@ export interface MetricsSummary {
 export interface ErrorResponse {
   detail: string
 }
+
+export interface VectorStoreStats {
+  total_chunks?: number | string
+  collection_name?: string
+  persist_directory?: string | null
+  type?: string
+  error?: string
+}
+
+export interface VectorStoreHealth {
+  status: 'healthy' | 'degraded' | 'not_initialized' | 'error'
+  available: boolean
+  error?: string
+}

@@ -73,8 +73,9 @@ onMounted(() => {
   }
 })
 
-function handleQuerySubmit(query: string) {
-  chatStore.sendQuery(query)
+async function handleQuerySubmit(query: string) {
+  // Use streaming by default for better UX
+  await chatStore.sendQueryStream(query)
 }
 
 function handleCitationClick(citation: Citation) {

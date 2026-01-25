@@ -142,8 +142,8 @@ class LLMService:
             logger.info(f"  - Messages count: {len(messages)}")
             
             import asyncio
-            # Add timeout to prevent hanging (60 seconds default)
-            timeout_seconds = kwargs.pop('timeout', 60) if 'timeout' in kwargs else 60
+            # Use configurable timeout from settings (default 180 seconds)
+            timeout_seconds = kwargs.pop('timeout', settings.llm_timeout) if 'timeout' in kwargs else settings.llm_timeout
             
             try:
                 response = await asyncio.wait_for(
@@ -290,6 +290,75 @@ class LLMService:
             return answer
         except Exception as e:
             logger.error(f"Error generating answer: {e}", exc_info=True)
+            raise
+    
+    async def generate_answer_stream(
+        self,
+        query: str,
+        context: List,
+        conversation_history: List = None,
+        external_context = None
+    ):
+        """
+        Generate answer with streaming support
+        
+        Args:
+            query: User query
+            context: List of RetrievalResult objects from vector store
+            conversation_history: List of ChatMessage objects for conversation context
+            external_context: Optional ExternalKnowledgeResult from Perplexity
+        
+        Yields:
+            Chunks of the generated answer as they arrive
+        """
+        if conversation_history is None:
+            conversation_history = []
+        
+        # Build system prompt with context
+        system_prompt = self._build_rag_system_prompt(context, external_context, query=query)
+        
+        # Build messages with conversation history
+        messages = []
+        
+        # Add system prompt
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        
+        # Add conversation history
+        for msg in conversation_history:
+            messages.append({
+                "role": msg.role,
+                "content": msg.content
+            })
+        
+        # Add current query
+        messages.append({"role": "user", "content": query})
+        
+        # Generate answer with streaming
+        try:
+            import asyncio
+            timeout_seconds = settings.llm_timeout
+            
+            stream = await asyncio.wait_for(
+                self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    stream=True
+                ),
+                timeout=timeout_seconds
+            )
+            
+            async for chunk in stream:
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        yield delta.content
+        except asyncio.TimeoutError:
+            logger.error(f"LLM streaming call timed out after {timeout_seconds} seconds")
+            raise RuntimeError(f"LLM API call timed out after {timeout_seconds} seconds")
+        except Exception as e:
+            logger.error(f"Error in streaming answer: {e}", exc_info=True)
             raise
     
     def _build_rag_system_prompt(self, context: List, external_context = None, query: str = "") -> str:
