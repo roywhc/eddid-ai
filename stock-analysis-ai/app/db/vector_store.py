@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Optional, List, Dict, Any
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -63,12 +64,35 @@ class ChromaVectorStore(VectorStoreBase):
                 ) from e
             raise
         
+        # Ensure persist directory exists with proper permissions
+        persist_dir = os.path.abspath(settings.chroma_persist_dir)
+        try:
+            os.makedirs(persist_dir, exist_ok=True)
+            # On Windows, ensure directory is writable
+            if os.name == 'nt':  # Windows
+                # Test write permissions
+                test_file = os.path.join(persist_dir, '.write_test')
+                try:
+                    with open(test_file, 'w') as f:
+                        f.write('test')
+                    os.remove(test_file)
+                except (IOError, OSError) as e:
+                    logger.warning(f"Cannot write to {persist_dir}: {e}. Trying alternative location.")
+                    # Try using user's temp directory as fallback
+                    import tempfile
+                    persist_dir = os.path.join(tempfile.gettempdir(), 'agentic_kb_chroma')
+                    os.makedirs(persist_dir, exist_ok=True)
+                    logger.info(f"Using alternative persist directory: {persist_dir}")
+        except (OSError, PermissionError) as e:
+            logger.error(f"Failed to create/access persist directory {persist_dir}: {e}")
+            raise RuntimeError(f"Cannot access vector store directory: {e}") from e
+        
         self.client = Chroma(
             collection_name="agentic_kb",
             embedding_function=self.embeddings,
-            persist_directory=settings.chroma_persist_dir
+            persist_directory=persist_dir
         )
-        logger.info(f"Chroma collection initialized at {settings.chroma_persist_dir}")
+        logger.info(f"Chroma collection initialized at {persist_dir}")
     
     async def add_chunks(self, chunks: List[Dict[str, Any]]) -> List[str]:
         """Add text chunks to vector store"""

@@ -1,0 +1,40 @@
+{
+  "name": "kb-ui",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Web UI for Agentic KB System",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "test:unit": "vitest",
+    "test:component": "vitest --config vitest.component.config.ts",
+    "test:e2e": "playwright test",
+    "type-check": "vue-tsc --noEmit",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "format": "prettier --write src/"
+  },
+  "dependencies": {
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.0",
+    "pinia": "^2.1.7",
+    "axios": "^1.6.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "@vue/test-utils": "^2.4.6",
+    "@vue/tsconfig": "^0.5.1",
+    "typescript": "^5.4.3",
+    "vite": "^5.2.0",
+    "vitest": "^1.3.1",
+    "@playwright/test": "^1.42.0",
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.35",
+    "autoprefixer": "^10.4.18",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint-plugin-vue": "^9.23.0",
+    "prettier": "^3.2.5"
+  }
+}

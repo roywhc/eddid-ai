@@ -1,6 +1,6 @@
 """Retrieval service for semantic search in vector store"""
 import logging
-from typing import List
+from typing import List, Optional
 from langchain_huggingface import HuggingFaceEmbeddings
 from app.db.vector_store import get_vector_store_instance
 from app.models import RetrievalResult, ChunkMetadata
@@ -24,11 +24,13 @@ class RetrievalService:
                 ) from e
             raise
         
-        self.vector_store = get_vector_store_instance()
-        if self.vector_store is None:
-            raise RuntimeError("Vector store not initialized. Call init_vector_store() first.")
-        
-        logger.info(f"RetrievalService initialized with embeddings model: {settings.embeddings_model}")
+        # Try to get vector store, but don't fail if it's not available
+        try:
+            self.vector_store = get_vector_store_instance()
+            logger.info(f"RetrievalService initialized with embeddings model: {settings.embeddings_model}")
+        except RuntimeError as e:
+            logger.warning(f"Vector store not available: {e}. RetrievalService will return empty results.")
+            self.vector_store = None
     
     async def retrieve(
         self,
@@ -47,8 +49,9 @@ class RetrievalService:
         Returns:
             List of RetrievalResult objects with content, metadata, and relevance scores
         
-        Raises:
-            Exception: If vector store search fails
+        Note:
+            Returns empty list if vector store is not available or if search fails.
+            This allows the system to gracefully fall back to external KB.
         """
         if not query or not query.strip():
             logger.warning("Empty query provided to retrieve()")
@@ -56,6 +59,11 @@ class RetrievalService:
         
         if not kb_id:
             logger.warning("Empty kb_id provided to retrieve()")
+            return []
+        
+        # If vector store is not available, return empty results
+        if self.vector_store is None:
+            logger.debug("Vector store not available, returning empty results")
             return []
         
         try:
@@ -74,4 +82,5 @@ class RetrievalService:
         
         except Exception as e:
             logger.error(f"Error retrieving chunks for query '{query[:50]}...': {e}", exc_info=True)
-            raise
+            # Return empty list instead of raising to allow fallback to external KB
+            return []

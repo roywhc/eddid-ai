@@ -1,24 +1,26 @@
+"""Pydantic models for API requests and responses"""
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import List, Optional, Dict, Any
 from datetime import datetime
-from enum import Enum
 
-# ===== API Models =====
+# ===== Chat Models =====
 
 class ChatMessage(BaseModel):
-    role: str = Field(..., description="'user' or 'assistant'")
-    content: str = Field(..., min_length=1)
-    timestamp: Optional[datetime] = None
+    """Chat message"""
+    role: str  # "user" or "assistant"
+    content: str
+    timestamp: Optional[str] = None
 
 class ChatRequest(BaseModel):
+    """Chat query request"""
     query: str = Field(..., min_length=1, max_length=5000)
     session_id: Optional[str] = None
-    include_sources: bool = False  # Default to False - sources not included in response by default
+    include_sources: bool = False
     use_external_kb: bool = True
-    conversation_history: List[ChatMessage] = []
+    conversation_history: Optional[List[ChatMessage]] = None
 
 class Citation(BaseModel):
-    """Citation source"""
+    """Citation/source reference"""
     source: str  # "internal" or "external"
     document_id: Optional[str] = None
     document_title: Optional[str] = None
@@ -28,34 +30,30 @@ class Citation(BaseModel):
     snippet: Optional[str] = None
 
 class ChatResponse(BaseModel):
+    """Chat query response"""
     session_id: str
     query: str
     answer: str
     sources: List[Citation] = []
-    confidence_score: float = Field(..., ge=0, le=1)
+    confidence_score: float
     used_internal_kb: bool
     used_external_kb: bool
-    processing_time_ms: float
-    timestamp: datetime
+    processing_time_ms: int
+    timestamp: str
 
-# ===== Knowledge Base Models =====
+# ===== KB Models =====
 
-class ChunkMetadata(BaseModel):
-    """Chunk metadata"""
+class KBUpdateRequest(BaseModel):
+    """KB update request (for API)"""
+    doc_id: Optional[str] = None
     kb_id: str
-    doc_id: str
+    title: str
+    content: str
     doc_type: str
-    version: str
-    section_title: Optional[str] = None
-    section_path: Optional[str] = None
-    language: str = "en"
-    created_at: datetime
-    updated_at: datetime
-    owner: Optional[str] = None
     tags: List[str] = []
-    source_type: str
+    language: str = "en"
+    source_type: Optional[str] = "manual"
     source_urls: List[str] = []
-    status: str = "active"
 
 class KBDocument(BaseModel):
     """Knowledge base document"""
@@ -74,6 +72,13 @@ class KBDocument(BaseModel):
     status: str = "active"
     chunks: Optional[int] = None
 
+class DocumentsListResponse(BaseModel):
+    """Paginated documents list response"""
+    items: List[KBDocument]
+    total: Optional[int] = None
+    limit: int
+    offset: int
+
 class KBCandidate(BaseModel):
     """Candidate entry (pending review)"""
     candidate_id: str
@@ -89,18 +94,7 @@ class KBCandidate(BaseModel):
     reviewed_by: Optional[str] = None
     review_notes: Optional[str] = None
     hit_count: int = 0
-
-class KBUpdateRequest(BaseModel):
-    """KB update request (for API)"""
-    doc_id: Optional[str] = None
-    kb_id: str
-    title: str
-    content: str
-    doc_type: str
-    tags: List[str] = []
-    language: str = "en"
-    source_type: Optional[str] = "manual"
-    source_urls: List[str] = []
+    doc_id: Optional[str] = None  # Link to document if approved
 
 class CandidateApproveRequest(BaseModel):
     """Request to approve a candidate"""
@@ -118,37 +112,59 @@ class CandidateModifyRequest(BaseModel):
     notes: Optional[str] = None
     document: KBUpdateRequest
 
-# ===== Internal Models =====
+# ===== Health & Metrics Models =====
+
+class HealthStatus(BaseModel):
+    """System health status"""
+    status: str  # "healthy", "degraded", "unhealthy"
+    timestamp: str
+    components: Dict[str, str]
+    version: str
+
+class MetricsSummary(BaseModel):
+    """Metrics summary"""
+    enabled: bool
+    counters: Optional[Dict[str, float]] = None
+    histograms: Optional[Dict[str, Any]] = None
+    gauges: Optional[Dict[str, float]] = None
+    error: Optional[str] = None
+
+# ===== Retrieval Models =====
+
+class ChunkMetadata(BaseModel):
+    """Metadata for a document chunk"""
+    doc_id: str
+    kb_id: str
+    doc_type: Optional[str] = None
+    version: Optional[str] = None
+    chunk_index: Optional[int] = None
+    chunk_size: Optional[int] = None
+    section_title: Optional[str] = None
+    section_path: Optional[str] = None
+    language: Optional[str] = None
+    tags: Optional[List[str]] = None
+    source_type: Optional[str] = None
+    source_urls: Optional[List[str]] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    created_by: Optional[str] = None
 
 class RetrievalResult(BaseModel):
-    """Retrieval result"""
+    """Result from vector store search"""
     chunk_id: str
     content: str
     metadata: ChunkMetadata
     score: float
 
 class ExternalKnowledgeResult(BaseModel):
-    """External knowledge result"""
+    """Result from external knowledge source (Perplexity)"""
     answer: str
-    citations: List[Dict[str, str]]
-    raw_response: Dict[str, Any] = {}
-    query_time_ms: float = 0.0
+    citations: List[Citation]
+    raw_response: Optional[Dict[str, Any]] = None
+    query_time_ms: float
 
-class KBUpdatableContent(BaseModel):
-    """Content updatable in KB"""
-    title: str
-    summary: str
-    detailed_content: str
-    source_type: str
-    source_urls: List[str]
-    extracted_on: datetime
-    applicable_scope: Optional[Dict[str, Any]] = None
+# ===== Error Models =====
 
-# ===== Health Check =====
-
-class HealthStatus(BaseModel):
-    status: str
-    timestamp: datetime
-    components: Dict[str, str]
-    version: str
-
+class ErrorResponse(BaseModel):
+    """Error response"""
+    detail: str

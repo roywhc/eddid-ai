@@ -1,0 +1,804 @@
+openapi: 3.0.3
+info:
+  title: Agentic KB System API
+  description: REST API for Agentic Knowledge Base System - Frontend Contract
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development server
+  - url: https://api.example.com/api/v1
+    description: Production server
+
+paths:
+  /chat/query:
+    post:
+      summary: Submit a chat query
+      description: Process a user query through the RAG pipeline and return AI-generated answer with citations
+      operationId: chatQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Bad request (empty query or exceeds length limit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kb/documents:
+    get:
+      summary: List documents
+      description: Get a paginated list of knowledge base documents with optional filters
+      operationId: listDocuments
+      parameters:
+        - name: kb_id
+          in: query
+          schema:
+            type: string
+          description: Filter by knowledge base ID
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, archived, deleted]
+          description: Filter by status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Maximum number of results
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Offset for pagination
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KBDocument'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create a new document
+      description: Create a new knowledge base document (will be chunked and embedded automatically)
+      operationId: createDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KBUpdateRequest'
+      responses:
+        '201':
+          description: Document created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBDocument'
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kb/documents/{doc_id}:
+    get:
+      summary: Get document by ID
+      description: Retrieve a specific knowledge base document
+      operationId: getDocument
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Document ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBDocument'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update document
+      description: Update an existing document (will be re-chunked and re-embedded)
+      operationId: updateDocument
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Document ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KBUpdateRequest'
+      responses:
+        '200':
+          description: Document updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBDocument'
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete document
+      description: Soft delete a document (marks as deleted, removes chunks from vector store)
+      operationId: deleteDocument
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Document ID
+      responses:
+        '204':
+          description: Document deleted successfully
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kb/candidates:
+    get:
+      summary: List candidates
+      description: Get a paginated list of candidate entries with optional filters
+      operationId: listCandidates
+      parameters:
+        - name: kb_id
+          in: query
+          schema:
+            type: string
+          description: Filter by knowledge base ID
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, modified]
+          description: Filter by status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Maximum number of results
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Offset for pagination
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KBCandidate'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kb/candidates/{candidate_id}/approve:
+    post:
+      summary: Approve candidate
+      description: Approve a candidate and convert it to a document
+      operationId: approveCandidate
+      parameters:
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Candidate ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateApproveRequest'
+      responses:
+        '201':
+          description: Candidate approved and converted to document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBDocument'
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kb/candidates/{candidate_id}/reject:
+    post:
+      summary: Reject candidate
+      description: Reject a candidate (marks status as rejected)
+      operationId: rejectCandidate
+      parameters:
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Candidate ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateRejectRequest'
+      responses:
+        '200':
+          description: Candidate rejected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: rejected
+                  candidate_id:
+                    type: string
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kb/candidates/{candidate_id}/modify:
+    post:
+      summary: Modify and approve candidate
+      description: Modify a candidate's content and approve it as a document
+      operationId: modifyCandidate
+      parameters:
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Candidate ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateModifyRequest'
+      responses:
+        '201':
+          description: Candidate modified and converted to document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBDocument'
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      summary: Health check
+      description: Get application health status with component details
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+  /health/live:
+    get:
+      summary: Liveness probe
+      description: Kubernetes/Azure Container Apps liveness probe
+      operationId: livenessProbe
+      responses:
+        '200':
+          description: Application is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: alive
+                  timestamp:
+                    type: string
+                    format: date-time
+  /health/ready:
+    get:
+      summary: Readiness probe
+      description: Kubernetes/Azure Container Apps readiness probe
+      operationId: readinessProbe
+      responses:
+        '200':
+          description: Application is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ready
+                  timestamp:
+                    type: string
+                    format: date-time
+        '503':
+          description: Application is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /metrics:
+    get:
+      summary: Get Prometheus metrics
+      description: Get metrics in Prometheus format
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: Error retrieving metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+  /metrics/summary:
+    get:
+      summary: Get metrics summary
+      description: Get metrics summary in JSON format
+      operationId: getMetricsSummary
+      responses:
+        '200':
+          description: Metrics summary
+          content:
+            application/json:
+              schema:
+                type: object
+  /metrics/health:
+    get:
+      summary: Get health with metrics
+      description: Get enhanced health check with metrics summary
+      operationId: getMetricsHealth
+      responses:
+        '200':
+          description: Health status with metrics
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          minLength: 1
+        timestamp:
+          type: string
+          format: date-time
+          nullable: true
+
+    ChatRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        session_id:
+          type: string
+          nullable: true
+          pattern: '^session_[a-f0-9]{12}$'
+        include_sources:
+          type: boolean
+          default: false
+        use_external_kb:
+          type: boolean
+          default: true
+        conversation_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          default: []
+
+    Citation:
+      type: object
+      properties:
+        source:
+          type: string
+          enum: [internal, external]
+        document_id:
+          type: string
+          nullable: true
+        document_title:
+          type: string
+          nullable: true
+        section:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        relevance_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          nullable: true
+        snippet:
+          type: string
+          nullable: true
+
+    ChatResponse:
+      type: object
+      required:
+        - session_id
+        - query
+        - answer
+        - confidence_score
+        - used_internal_kb
+        - used_external_kb
+        - processing_time_ms
+        - timestamp
+      properties:
+        session_id:
+          type: string
+        query:
+          type: string
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+          default: []
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        used_internal_kb:
+          type: boolean
+        used_external_kb:
+          type: boolean
+        processing_time_ms:
+          type: number
+          format: float
+        timestamp:
+          type: string
+          format: date-time
+
+    KBDocument:
+      type: object
+      required:
+        - doc_id
+        - kb_id
+        - title
+        - doc_type
+        - content
+        - version
+        - created_at
+        - updated_at
+        - created_by
+        - language
+        - status
+      properties:
+        doc_id:
+          type: string
+        kb_id:
+          type: string
+        title:
+          type: string
+        doc_type:
+          type: string
+        content:
+          type: string
+        version:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        approved_by:
+          type: string
+          nullable: true
+        language:
+          type: string
+          default: en
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+        status:
+          type: string
+          enum: [active, archived, deleted]
+        chunks:
+          type: integer
+          nullable: true
+
+    KBUpdateRequest:
+      type: object
+      required:
+        - kb_id
+        - title
+        - content
+        - doc_type
+      properties:
+        doc_id:
+          type: string
+          nullable: true
+        kb_id:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        doc_type:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+        language:
+          type: string
+          default: en
+        source_type:
+          type: string
+          nullable: true
+          default: manual
+        source_urls:
+          type: array
+          items:
+            type: string
+          default: []
+
+    KBCandidate:
+      type: object
+      required:
+        - candidate_id
+        - original_query
+        - source_type
+        - title
+        - content
+        - suggested_kb_id
+        - extracted_on
+        - status
+        - hit_count
+      properties:
+        candidate_id:
+          type: string
+        original_query:
+          type: string
+        source_type:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        suggested_kb_id:
+          type: string
+        suggested_category:
+          type: string
+          nullable: true
+        external_urls:
+          type: array
+          items:
+            type: string
+          default: []
+        extracted_on:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, approved, rejected, modified]
+        reviewed_by:
+          type: string
+          nullable: true
+        review_notes:
+          type: string
+          nullable: true
+        hit_count:
+          type: integer
+
+    CandidateApproveRequest:
+      type: object
+      required:
+        - reviewer
+      properties:
+        reviewer:
+          type: string
+        notes:
+          type: string
+          nullable: true
+
+    CandidateRejectRequest:
+      type: object
+      required:
+        - reviewer
+      properties:
+        reviewer:
+          type: string
+        notes:
+          type: string
+          nullable: true
+
+    CandidateModifyRequest:
+      type: object
+      required:
+        - reviewer
+        - document
+      properties:
+        reviewer:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        document:
+          $ref: '#/components/schemas/KBUpdateRequest'
+
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+        - components
+        - version
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        components:
+          type: object
+          additionalProperties:
+            type: string
+        version:
+          type: string
+
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string

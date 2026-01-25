@@ -76,10 +76,83 @@ class CandidateReviewService:
                     status=record.status,
                     reviewed_by=record.reviewed_by,
                     review_notes=record.review_notes,
-                    hit_count=record.hit_count
+                    hit_count=record.hit_count,
+                    doc_id=record.doc_id  # Include linked document ID
                 ))
             
             return candidates
+        
+        finally:
+            db.close()
+    
+    async def reimport_candidate(
+        self,
+        candidate_id: str,
+        reviewer: str,
+        notes: Optional[str] = None
+    ) -> KBDocument:
+        """
+        Re-import an approved candidate (re-approve to create a new document)
+        
+        Args:
+            candidate_id: Candidate ID
+            reviewer: User who is re-importing
+            notes: Optional notes
+        
+        Returns:
+            Newly created KBDocument
+        
+        Raises:
+            ValueError: If candidate not found
+        """
+        db = SessionLocal()
+        try:
+            # Get candidate
+            candidate_record = db.query(KBCandidateRecord).filter(
+                KBCandidateRecord.candidate_id == candidate_id
+            ).first()
+            
+            if not candidate_record:
+                raise ValueError(f"Candidate not found: {candidate_id}")
+            
+            logger.info(f"Re-importing candidate: {candidate_id} by {reviewer}")
+            
+            # Convert to KBUpdateRequest
+            request = KBUpdateRequest(
+                kb_id=candidate_record.suggested_kb_id,
+                title=candidate_record.title,
+                content=candidate_record.content,
+                doc_type=candidate_record.suggested_category or "external_perplexity",
+                tags=[],
+                language="en",
+                source_type="external_perplexity",
+                source_urls=candidate_record.external_urls or []
+            )
+            
+            # Create new document
+            document = await self.document_service.create_document(
+                request=request,
+                created_by=reviewer
+            )
+            
+            # Update candidate to link to new document
+            candidate_record.doc_id = document.doc_id
+            candidate_record.reviewed_by = reviewer
+            if notes:
+                candidate_record.review_notes = notes
+            
+            db.commit()
+            logger.info(f"Candidate {candidate_id} re-imported, created document {document.doc_id}")
+            
+            # Record metrics
+            self.metrics.increment_counter("candidates_reimported_total")
+            
+            return document
+        
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error re-importing candidate: {e}", exc_info=True)
+            raise
         
         finally:
             db.close()
@@ -137,10 +210,11 @@ class CandidateReviewService:
                 created_by=reviewer
             )
             
-            # Update candidate status
+            # Update candidate status and link to document
             candidate_record.status = "approved"
             candidate_record.reviewed_by = reviewer
             candidate_record.review_notes = notes
+            candidate_record.doc_id = document.doc_id  # Link candidate to document
             
             db.commit()
             logger.info(f"Candidate {candidate_id} approved and converted to document {document.doc_id}")
@@ -257,10 +331,11 @@ class CandidateReviewService:
                 created_by=reviewer
             )
             
-            # Update candidate status
+            # Update candidate status and link to document
             candidate_record.status = "modified"
             candidate_record.reviewed_by = reviewer
             candidate_record.review_notes = notes
+            candidate_record.doc_id = document.doc_id  # Link candidate to document
             
             db.commit()
             logger.info(f"Candidate {candidate_id} modified and converted to document {document.doc_id}")

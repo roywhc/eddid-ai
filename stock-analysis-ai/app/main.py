@@ -33,7 +33,20 @@ async def lifespan(app: FastAPI):
     logger.info(f"OpenRouter API Key: {'SET' if settings.openrouter_api_key else 'NOT SET'}")
     
     # Create data directory if it doesn't exist
-    os.makedirs("./data", exist_ok=True)
+    data_dir = "./data"
+    try:
+        os.makedirs(data_dir, exist_ok=True)
+        # On Windows, ensure directory is writable
+        if os.name == 'nt':  # Windows
+            test_file = os.path.join(data_dir, '.write_test')
+            try:
+                with open(test_file, 'w') as f:
+                    f.write('test')
+                os.remove(test_file)
+            except (IOError, OSError) as e:
+                logger.warning(f"Cannot write to {data_dir}: {e}")
+    except (OSError, PermissionError) as e:
+        logger.warning(f"Failed to create data directory {data_dir}: {e}")
     
     try:
         init_db()
@@ -49,6 +62,7 @@ async def lifespan(app: FastAPI):
         logger.error(f"Vector store initialization failed: {e}")
         # Don't raise - allow app to start even if vector store fails
         logger.warning("Continuing without vector store - some features may be unavailable")
+        logger.warning("Chat queries will only use external knowledge base (Perplexity)")
     
     yield
     

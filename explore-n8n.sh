@@ -1,0 +1,1 @@
+docker run -it --rm -v n8n_data:/data -v C:/Users/Wanho/workspace/eddid-ai/n8n:/backup alpine sh

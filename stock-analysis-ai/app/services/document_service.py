@@ -33,7 +33,11 @@ class DocumentService:
     def _get_vector_store(self):
         """Get or initialize vector store"""
         if self.vector_store is None:
-            self.vector_store = get_vector_store_instance()
+            try:
+                self.vector_store = get_vector_store_instance()
+            except RuntimeError as e:
+                logger.warning(f"Vector store not available: {e}")
+                return None
         return self.vector_store
     
     def _generate_doc_id(self) -> str:
@@ -117,8 +121,13 @@ class DocumentService:
         
         # Generate embeddings and store in vector DB
         vector_store = self._get_vector_store()
-        chunk_ids = await vector_store.add_chunks(chunks)
-        logger.info(f"Added {len(chunk_ids)} chunks to vector store")
+        if vector_store is None:
+            logger.warning("Vector store not available. Document will be created without vector embeddings.")
+            # Use chunk IDs from chunker when vector store unavailable
+            chunk_ids = [chunk["chunk_id"] for chunk in chunks]
+        else:
+            chunk_ids = await vector_store.add_chunks(chunks)
+            logger.info(f"Added {len(chunk_ids)} chunks to vector store")
         
         # Save document metadata to database
         db = SessionLocal()
@@ -129,6 +138,7 @@ class DocumentService:
                 kb_id=request.kb_id,
                 title=request.title,
                 doc_type=request.doc_type,
+                content=request.content,  # Store document content
                 version=version,
                 status="active",
                 created_by=created_by,
@@ -225,15 +235,12 @@ class DocumentService:
                 ChunkRecord.status == "active"
             ).count()
             
-            # Note: We don't return full content from metadata DB for performance
-            # Content should be stored separately or retrieved from source
-            # For now, we'll return empty content (can be enhanced later)
             return KBDocument(
                 doc_id=doc_record.doc_id,
                 kb_id=doc_record.kb_id,
                 title=doc_record.title,
                 doc_type=doc_record.doc_type,
-                content="",  # Content not stored in metadata DB
+                content=doc_record.content or "",  # Retrieve content from database
                 version=doc_record.version,
                 created_at=doc_record.created_at,
                 updated_at=doc_record.updated_at,
@@ -296,8 +303,11 @@ class DocumentService:
             # Delete old chunks from vector store
             if old_chunk_ids:
                 vector_store = self._get_vector_store()
-                await vector_store.delete_chunks(old_chunk_ids)
-                logger.info(f"Deleted {len(old_chunk_ids)} old chunks from vector store")
+                if vector_store:
+                    await vector_store.delete_chunks(old_chunk_ids)
+                    logger.info(f"Deleted {len(old_chunk_ids)} old chunks from vector store")
+                else:
+                    logger.warning("Vector store not available. Skipping chunk deletion.")
             
             # Mark old chunks as deleted in database
             db.query(ChunkRecord).filter(
@@ -328,12 +338,18 @@ class DocumentService:
             
             # Generate embeddings and store in vector DB
             vector_store = self._get_vector_store()
-            chunk_ids = await vector_store.add_chunks(chunks)
-            logger.info(f"Added {len(chunk_ids)} new chunks to vector store")
+            if vector_store is None:
+                logger.warning("Vector store not available. Document will be updated without vector embeddings.")
+                # Use chunk IDs from chunker when vector store unavailable
+                chunk_ids = [chunk["chunk_id"] for chunk in chunks]
+            else:
+                chunk_ids = await vector_store.add_chunks(chunks)
+                logger.info(f"Added {len(chunk_ids)} new chunks to vector store")
             
             # Update document record
             doc_record.title = request.title
             doc_record.doc_type = request.doc_type
+            doc_record.content = request.content  # Update content
             doc_record.version = new_version
             doc_record.updated_at = datetime.utcnow()
             doc_record.tags = request.tags or []
@@ -373,7 +389,7 @@ class DocumentService:
                 kb_id=doc_record.kb_id,
                 title=doc_record.title,
                 doc_type=doc_record.doc_type,
-                content=request.content,
+                content=doc_record.content or "",  # Retrieve from database
                 version=new_version,
                 created_at=doc_record.created_at,
                 updated_at=doc_record.updated_at,
@@ -424,8 +440,11 @@ class DocumentService:
             # Delete chunks from vector store
             if chunk_ids:
                 vector_store = self._get_vector_store()
-                await vector_store.delete_chunks(chunk_ids)
-                logger.info(f"Deleted {len(chunk_ids)} chunks from vector store")
+                if vector_store:
+                    await vector_store.delete_chunks(chunk_ids)
+                    logger.info(f"Deleted {len(chunk_ids)} chunks from vector store")
+                else:
+                    logger.warning("Vector store not available. Skipping chunk deletion.")
             
             # Mark document and chunks as deleted
             doc_record.status = "deleted"
@@ -457,7 +476,7 @@ class DocumentService:
         status: Optional[str] = None,
         limit: int = 50,
         offset: int = 0
-    ) -> List[KBDocument]:
+    ) -> tuple[List[KBDocument], int]:
         """
         List documents with filters
         
@@ -468,7 +487,7 @@ class DocumentService:
             offset: Offset for pagination
         
         Returns:
-            List of KBDocument
+            Tuple of (List of KBDocument, total count)
         """
         db = SessionLocal()
         try:
@@ -486,6 +505,9 @@ class DocumentService:
             # Order by created_at descending
             query = query.order_by(DocumentRecord.created_at.desc())
             
+            # Get total count before pagination
+            total_count = query.count()
+            
             # Pagination
             records = query.offset(offset).limit(limit).all()
             
@@ -502,7 +524,7 @@ class DocumentService:
                     kb_id=record.kb_id,
                     title=record.title,
                     doc_type=record.doc_type,
-                    content="",  # Content not stored in metadata DB
+                    content=record.content or "",  # Retrieve content from database
                     version=record.version,
                     created_at=record.created_at,
                     updated_at=record.updated_at,
@@ -514,7 +536,7 @@ class DocumentService:
                     chunks=chunk_count
                 ))
             
-            return documents
+            return documents, total_count
         
         finally:
             db.close()

@@ -2,7 +2,8 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.models import (
     KBUpdateRequest, KBDocument, KBCandidate,
-    CandidateApproveRequest, CandidateRejectRequest, CandidateModifyRequest
+    CandidateApproveRequest, CandidateRejectRequest, CandidateModifyRequest,
+    DocumentsListResponse
 )
 from app.services.document_service import DocumentService
 from app.services.candidate_review_service import CandidateReviewService
@@ -104,18 +105,23 @@ async def delete_document(doc_id: str):
         logger.error(f"Error deleting document: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.get("/documents", response_model=List[KBDocument])
+@router.get("/documents", response_model=DocumentsListResponse)
 async def list_documents(
     kb_id: Optional[str] = Query(None, description="Filter by knowledge base ID"),
     status: Optional[str] = Query(None, description="Filter by status (active, archived, deleted)"),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Offset for pagination")
-) -> List[KBDocument]:
+) -> DocumentsListResponse:
     """List documents with optional filters"""
     try:
         service = get_document_service()
-        documents = service.list_documents(kb_id=kb_id, status=status, limit=limit, offset=offset)
-        return documents
+        documents, total = service.list_documents(kb_id=kb_id, status=status, limit=limit, offset=offset)
+        return DocumentsListResponse(
+            items=documents,
+            total=total,
+            limit=limit,
+            offset=offset
+        )
     except Exception as e:
         logger.error(f"Error listing documents: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -204,4 +210,26 @@ async def modify_candidate(candidate_id: str, request: CandidateModifyRequest) -
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error modifying candidate: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.post("/candidates/{candidate_id}/reimport", response_model=KBDocument, status_code=201)
+async def reimport_candidate(candidate_id: str, request: CandidateApproveRequest) -> KBDocument:
+    """
+    Re-import an approved candidate (create a new document from it)
+    
+    This allows re-approving a candidate that was already approved, creating a new document.
+    """
+    try:
+        service = get_candidate_service()
+        document = await service.reimport_candidate(
+            candidate_id=candidate_id,
+            reviewer=request.reviewer,
+            notes=request.notes
+        )
+        logger.info(f"Candidate {candidate_id} re-imported, created document {document.doc_id}")
+        return document
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error re-importing candidate: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

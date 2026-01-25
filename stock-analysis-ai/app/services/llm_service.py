@@ -141,13 +141,24 @@ class LLMService:
             logger.info(f"  - Base URL: {getattr(self.client, 'base_url', 'N/A')}")
             logger.info(f"  - Messages count: {len(messages)}")
             
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=temperature or self.temperature,
-                max_tokens=max_tokens,
-                **kwargs
-            )
+            import asyncio
+            # Add timeout to prevent hanging (60 seconds default)
+            timeout_seconds = kwargs.pop('timeout', 60) if 'timeout' in kwargs else 60
+            
+            try:
+                response = await asyncio.wait_for(
+                    self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=temperature or self.temperature,
+                        max_tokens=max_tokens,
+                        **kwargs
+                    ),
+                    timeout=timeout_seconds
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"LLM API call timed out after {timeout_seconds} seconds")
+                raise RuntimeError(f"LLM API call timed out after {timeout_seconds} seconds")
             
             content = response.choices[0].message.content
             logger.info(f"✅ LLM response received (provider: {self.provider.value}, model: {self.model})")

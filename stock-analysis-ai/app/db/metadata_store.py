@@ -27,6 +27,7 @@ class DocumentRecord(Base):
     kb_id = Column(String, index=True)
     title = Column(String)
     doc_type = Column(String)
+    content = Column(Text, nullable=True)  # Store document content (nullable for existing records)
     version = Column(String)
     status = Column(String, default="active")
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -76,6 +77,7 @@ class KBCandidateRecord(Base):
     reviewed_by = Column(String, nullable=True)
     review_notes = Column(Text, nullable=True)
     hit_count = Column(Integer, default=1)
+    doc_id = Column(String, nullable=True)  # Link to document if approved
 
 class ChatHistoryRecord(Base):
     """Chat history record"""
@@ -96,6 +98,39 @@ def init_db():
     """Initialize database"""
     logger.info(f"Initializing database: {settings.metadata_db_url}")
     Base.metadata.create_all(bind=engine)
+    
+    # Migrate existing database: add content column if missing
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        
+        # Add content column to documents table
+        try:
+            columns = [col['name'] for col in inspector.get_columns('documents')]
+            if 'content' not in columns:
+                logger.info("Adding content column to existing documents table...")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE documents ADD COLUMN content TEXT"))
+                    conn.commit()
+                logger.info("Migration completed: content column added to documents")
+        except Exception as e:
+            logger.debug(f"Documents table migration check: {e}")
+        
+        # Add doc_id column to kb_candidates table
+        try:
+            columns = [col['name'] for col in inspector.get_columns('kb_candidates')]
+            if 'doc_id' not in columns:
+                logger.info("Adding doc_id column to existing kb_candidates table...")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE kb_candidates ADD COLUMN doc_id TEXT"))
+                    conn.commit()
+                logger.info("Migration completed: doc_id column added to kb_candidates")
+        except Exception as e:
+            logger.debug(f"KB candidates table migration check: {e}")
+    except Exception as e:
+        # Migration might fail if table doesn't exist yet
+        logger.debug(f"Migration check: {e}")
+    
     logger.info("Database initialized successfully")
 
 def get_db():
