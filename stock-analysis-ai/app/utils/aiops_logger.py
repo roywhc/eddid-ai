@@ -55,8 +55,8 @@ class AIOpsLogger:
         query_id = f"{uuid.uuid4().hex[:12]}"
         self.current_query_id = query_id
         
-        # Create timestamped directory
-        now = datetime.utcnow()
+        # Create timestamped directory using local time
+        now = datetime.now()
         date_dir = self.base_dir / now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H-%M-%S")
         query_dir = date_dir / f"{time_str}-{query_id}"
@@ -271,6 +271,43 @@ class AIOpsLogger:
         }
         
         self._write_file("99-error.json", data)
+    
+    def log_tool_call(
+        self,
+        tool_name: str,
+        parameters: Dict[str, Any],
+        result: Optional[Dict[str, Any]] = None,
+        status: str = "success",
+        duration_ms: Optional[float] = None,
+        error_message: Optional[str] = None,
+        retry_count: int = 0,
+        **metadata
+    ):
+        """Log tool call execution"""
+        if not self.enabled or not self.current_query_dir:
+            return
+        
+        self.sequence += 1
+        data = {
+            "sequence": self.sequence,
+            "timestamp": datetime.utcnow().isoformat(),
+            "tool_name": tool_name,
+            "parameters": {
+                k: (str(v)[:200] if isinstance(v, str) and len(str(v)) > 200 else v)
+                for k, v in parameters.items()
+            },  # Truncate long parameter values
+            "status": status,
+            "duration_ms": duration_ms,
+            "retry_count": retry_count,
+            "error_message": error_message,
+            "result_preview": {
+                k: (str(v)[:500] if isinstance(v, str) and len(str(v)) > 500 else v)
+                for k, v in (result or {}).items()
+            } if result else None,
+            "metadata": metadata
+        }
+        
+        self._write_file(f"07-tool-call-{tool_name.replace('_', '-')}.json", data)
     
     def _write_file(self, filename: str, data: Dict[str, Any]):
         """Write data to JSON file"""

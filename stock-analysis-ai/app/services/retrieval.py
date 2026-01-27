@@ -75,8 +75,28 @@ class RetrievalService:
         try:
             from app.config import settings
             
-            logger.info(f"RetrievalService.retrieve() called: query='{query}', kb_id={kb_id}, top_k={top_k}")
-            logger.info(f"Relevance threshold: {settings.relevance_score_threshold}")
+            # Check if this is being called from tool-based flow, streaming flow, or old flow
+            import inspect
+            call_stack = inspect.stack()
+            is_tool_call = any('knowledge_base_tool' in str(frame.filename) for frame in call_stack)
+            is_streaming = any('process_query_stream' in str(frame.function) for frame in call_stack)
+            
+            if is_tool_call:
+                flow_type = "🔧 TOOL-BASED FLOW"
+            elif is_streaming:
+                flow_type = "⚠️ LEGACY STREAMING FLOW"
+            else:
+                flow_type = "⚠️ OLD FLOW"
+            
+            logger.info(f"{flow_type}: RetrievalService.retrieve() called: query='{query}', kb_id={kb_id}, top_k={top_k}")
+            logger.info(f"{flow_type}: Relevance threshold: {settings.relevance_score_threshold}")
+            
+            if not is_tool_call and not is_streaming:
+                logger.warning(f"⚠️ OLD FLOW DETECTED: RetrievalService called directly (not through KnowledgeBaseTool)")
+                logger.warning(f"⚠️ This suggests the old RAGOrchestrator.process_query() is being used instead of ToolAgentController")
+                logger.warning(f"⚠️ Stack trace (first 5 frames):")
+                for i, frame in enumerate(call_stack[:5]):
+                    logger.warning(f"  {i+1}. {frame.filename}:{frame.lineno} in {frame.function}")
             
             # Generate and log query embedding
             try:

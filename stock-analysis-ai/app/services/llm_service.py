@@ -82,6 +82,8 @@ class LLMService:
         messages: List[Dict[str, str]],
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[str] = None,
         **kwargs
     ) -> str:
         """
@@ -145,23 +147,62 @@ class LLMService:
             # Use configurable timeout from settings (default 180 seconds)
             timeout_seconds = kwargs.pop('timeout', settings.llm_timeout) if 'timeout' in kwargs else settings.llm_timeout
             
+            # Prepare API call parameters
+            api_params = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature or self.temperature,
+                "max_tokens": max_tokens,
+                **kwargs
+            }
+            
+            # Add tool calling support if tools are provided
+            if tools:
+                logger.info(f"🔧 TOOL-BASED FLOW: Adding {len(tools)} tool(s) to LLM API call")
+                api_params["tools"] = tools
+                if tool_choice:
+                    api_params["tool_choice"] = tool_choice
+                    logger.info(f"🔧 TOOL-BASED FLOW: Tool choice: {tool_choice}")
+            else:
+                logger.debug(f"🔧 TOOL-BASED FLOW: No tools provided to LLM call")
+            
             try:
                 response = await asyncio.wait_for(
-                    self.client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        temperature=temperature or self.temperature,
-                        max_tokens=max_tokens,
-                        **kwargs
-                    ),
+                    self.client.chat.completions.create(**api_params),
                     timeout=timeout_seconds
                 )
             except asyncio.TimeoutError:
                 logger.error(f"LLM API call timed out after {timeout_seconds} seconds")
                 raise RuntimeError(f"LLM API call timed out after {timeout_seconds} seconds")
             
-            content = response.choices[0].message.content
+            message = response.choices[0].message
+            
+            # Check if tool calls are present
+            if hasattr(message, 'tool_calls') and message.tool_calls:
+                # Return tool calls information for processing
+                logger.info(f"🔧 TOOL-BASED FLOW: ✅ LLM returned {len(message.tool_calls)} tool call(s)")
+                for i, tc in enumerate(message.tool_calls, 1):
+                    logger.info(f"🔧 TOOL-BASED FLOW:   Tool Call {i}: {tc.function.name}")
+                # For tool calling, we return a special format
+                # The controller will handle tool execution
+                return {
+                    "content": message.content or "",
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": tc.type,
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        }
+                        for tc in message.tool_calls
+                    ]
+                }
+            
+            content = message.content or ""
             logger.info(f"✅ LLM response received (provider: {self.provider.value}, model: {self.model})")
+            logger.info(f"🔧 TOOL-BASED FLOW: ⚠️ LLM returned direct response (no tool calls), length={len(content)}")
             logger.debug(f"Response length: {len(content)} characters")
             return content
         
@@ -292,6 +333,55 @@ class LLMService:
             logger.error(f"Error generating answer: {e}", exc_info=True)
             raise
     
+    async def chat_stream(
+        self,
+        messages: List[Dict[str, Any]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        **kwargs
+    ):
+        """
+        Stream chat completion from messages
+        
+        Args:
+            messages: List of message dictionaries with role and content
+            temperature: Override default temperature
+            max_tokens: Maximum tokens in response
+            **kwargs: Additional parameters
+        
+        Yields:
+            Chunks of the generated answer as they arrive
+        """
+        try:
+            import asyncio
+            timeout_seconds = kwargs.pop('timeout', settings.llm_timeout) if 'timeout' in kwargs else settings.llm_timeout
+            
+            logger.info(f"🔧 TOOL-BASED FLOW (STREAMING): Starting LLM stream with {len(messages)} messages")
+            
+            stream = await asyncio.wait_for(
+                self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=temperature or self.temperature,
+                    max_tokens=max_tokens,
+                    stream=True,
+                    **kwargs
+                ),
+                timeout=timeout_seconds
+            )
+            
+            async for chunk in stream:
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        yield delta.content
+        except asyncio.TimeoutError:
+            logger.error(f"LLM streaming call timed out after {timeout_seconds} seconds")
+            raise RuntimeError(f"LLM API call timed out after {timeout_seconds} seconds")
+        except Exception as e:
+            logger.error(f"Error in streaming chat: {e}", exc_info=True)
+            raise
+    
     async def generate_answer_stream(
         self,
         query: str,
@@ -334,32 +424,9 @@ class LLMService:
         # Add current query
         messages.append({"role": "user", "content": query})
         
-        # Generate answer with streaming
-        try:
-            import asyncio
-            timeout_seconds = settings.llm_timeout
-            
-            stream = await asyncio.wait_for(
-                self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=self.temperature,
-                    stream=True
-                ),
-                timeout=timeout_seconds
-            )
-            
-            async for chunk in stream:
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
-                    if delta and delta.content:
-                        yield delta.content
-        except asyncio.TimeoutError:
-            logger.error(f"LLM streaming call timed out after {timeout_seconds} seconds")
-            raise RuntimeError(f"LLM API call timed out after {timeout_seconds} seconds")
-        except Exception as e:
-            logger.error(f"Error in streaming answer: {e}", exc_info=True)
-            raise
+        # Use chat_stream for streaming
+        async for chunk in self.chat_stream(messages):
+            yield chunk
     
     def _build_rag_system_prompt(self, context: List, external_context = None, query: str = "") -> str:
         """

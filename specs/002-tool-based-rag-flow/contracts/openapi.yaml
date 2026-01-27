@@ -1,0 +1,398 @@
+openapi: 3.1.0
+info:
+  title: Tool-Based RAG Flow API
+  description: |
+    API contracts for tool-based RAG flow refactoring. Defines tool schemas for LLM function calling
+    and maintains existing chat API endpoints.
+  version: 1.0.0
+  contact:
+    name: EDDID AI Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.eddid.ai
+    description: Production server
+
+paths:
+  /api/chat/query:
+    post:
+      summary: Process chat query with tool-based RAG flow
+      description: |
+        Processes a user query through the tool-based agentic flow where the LLM orchestrates
+        tool calls. The API endpoint remains unchanged, but internal flow uses tool-based architecture.
+      operationId: chatQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/chat/query/stream:
+    post:
+      summary: Process chat query with streaming response
+      description: |
+        Streaming version of chat query endpoint. Returns Server-Sent Events (SSE) with
+        tool call progress and final response.
+      operationId: chatQueryStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: User query string
+        session_id:
+          type: string
+          nullable: true
+          description: Optional session identifier for conversation context
+        include_sources:
+          type: boolean
+          default: false
+          description: Whether to include source citations in response
+        use_external_kb:
+          type: boolean
+          default: true
+          description: Whether to allow external knowledge base (Perplexity) queries
+        conversation_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          description: Previous conversation messages for context
+
+    ChatResponse:
+      type: object
+      required:
+        - session_id
+        - query
+        - answer
+        - confidence_score
+        - used_internal_kb
+        - used_external_kb
+        - processing_time_ms
+        - timestamp
+      properties:
+        session_id:
+          type: string
+          description: Session identifier
+        query:
+          type: string
+          description: Original user query
+        answer:
+          type: string
+          description: Generated answer
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+          description: List of citations (internal and external)
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score in answer quality
+        used_internal_kb:
+          type: boolean
+          description: Whether internal knowledge base was used
+        used_external_kb:
+          type: boolean
+          description: Whether Perplexity was queried
+        processing_time_ms:
+          type: integer
+          description: Total processing time in milliseconds
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+          description: Message role
+        content:
+          type: string
+          description: Message content
+        timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: Message timestamp
+
+    Citation:
+      type: object
+      required:
+        - source
+      properties:
+        source:
+          type: string
+          enum: [internal, external]
+          description: Citation source type
+        document_id:
+          type: string
+          nullable: true
+          description: Document identifier (for internal sources)
+        document_title:
+          type: string
+          nullable: true
+          description: Document title
+        section:
+          type: string
+          nullable: true
+          description: Section within document
+        url:
+          type: string
+          nullable: true
+          description: Source URL (for external sources)
+        relevance_score:
+          type: number
+          format: float
+          nullable: true
+          description: Relevance score
+        snippet:
+          type: string
+          nullable: true
+          description: Relevant text snippet
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+
+  # Tool Definitions for LLM Function Calling
+  # These are used internally by the Agent Controller, not exposed as REST endpoints
+  toolDefinitions:
+    knowledge_base_search:
+      type: function
+      function:
+        name: knowledge_base_search
+        description: |
+          Search the internal knowledge base for relevant information. This tool is MANDATORY for every query.
+          Always tailor the user's query to optimize retrieval results (extract key concepts, use synonyms,
+          focus on specific aspects).
+        parameters:
+          type: object
+          required:
+            - query
+          properties:
+            query:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              description: |
+                Tailored search query optimized for retrieval. Extract key concepts, use domain-specific
+                terminology, focus on specific aspects of the user's question.
+            kb_id:
+              type: string
+              default: "default_kb"
+              description: Knowledge base identifier
+            top_k:
+              type: integer
+              default: 5
+              minimum: 1
+              maximum: 20
+              description: Number of top results to return
+        returns:
+          type: object
+          properties:
+            chunks:
+              type: array
+              items:
+                type: object
+                properties:
+                  chunk_id:
+                    type: string
+                  content:
+                    type: string
+                  score:
+                    type: number
+                  metadata:
+                    type: object
+            total_results:
+              type: integer
+
+    perplexity_search:
+      type: function
+      function:
+        name: perplexity_search
+        description: |
+          Search external knowledge sources via Perplexity API. Only call this tool when knowledge base
+          results are insufficient to answer the user's query completely. After receiving results, you
+          MUST extract keywords for indexing.
+        parameters:
+          type: object
+          required:
+            - query
+          properties:
+            query:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              description: |
+                Tailored search query optimized for external knowledge retrieval. This should be different
+                from the knowledge base query - focus on current information, recent events, or topics
+                not covered in internal KB.
+            context:
+              type: string
+              maxLength: 2000
+              nullable: true
+              description: Summary of knowledge base results to provide context
+        returns:
+          type: object
+          properties:
+            answer:
+              type: string
+              description: Comprehensive answer from external sources
+            citations:
+              type: array
+              items:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  title:
+                    type: string
+            query_time_ms:
+              type: number
+
+    index_keywords:
+      type: function
+      function:
+        name: index_keywords
+        description: |
+          Index keywords extracted from Perplexity results for future knowledge base queries.
+          Keywords must be 2-50 characters, non-empty, and represent key concepts.
+        parameters:
+          type: object
+          required:
+            - keywords
+          properties:
+            keywords:
+              type: array
+              minItems: 1
+              maxItems: 10
+              items:
+                type: string
+                minLength: 2
+                maxLength: 50
+              description: |
+                List of keywords (3-10 recommended) representing core concepts from Perplexity results.
+                Keywords should be specific enough to be useful but general enough to match related queries.
+            query_id:
+              type: string
+              nullable: true
+              description: Original query identifier for traceability
+            perplexity_result_id:
+              type: string
+              nullable: true
+              description: Perplexity result identifier for traceability
+        returns:
+          type: object
+          properties:
+            indexed:
+              type: boolean
+            keyword_count:
+              type: integer
+            merged_count:
+              type: integer
+              description: Number of duplicate keywords that were merged
+
+    generate_response:
+      type: function
+      function:
+        name: generate_response
+        description: |
+          Generate and format the final response to the user. This tool is MANDATORY - you MUST use it
+          to return your answer, never return the answer directly in your message.
+        parameters:
+          type: object
+          required:
+            - answer
+            - sources
+            - used_internal_kb
+            - used_external_kb
+          properties:
+            answer:
+              type: string
+              minLength: 1
+              description: The complete answer combining information from all sources
+            sources:
+              type: array
+              items:
+                $ref: '#/components/schemas/Citation'
+              description: List of citations from knowledge base and/or Perplexity
+            confidence_score:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+              nullable: true
+              description: Confidence in the answer quality (0.0-1.0)
+            used_internal_kb:
+              type: boolean
+              description: Whether knowledge base was used
+            used_external_kb:
+              type: boolean
+              description: Whether Perplexity was used
+        returns:
+          type: object
+          properties:
+            formatted_response:
+              type: object
+              description: The final response formatted for the user
+            metadata:
+              type: object
+              description: Processing information

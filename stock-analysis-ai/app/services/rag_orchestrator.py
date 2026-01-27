@@ -21,7 +21,15 @@ class RAGOrchestrator:
     """Orchestrates the RAG pipeline: retrieval, LLM generation, and response formatting"""
     
     def __init__(self):
-        """Initialize RAG orchestrator with all required services"""
+        """Initialize RAG orchestrator with all required services
+        
+        ⚠️ DEPRECATED: This class is deprecated. Use ToolAgentController for /api/v1/chat/query endpoint.
+        This is only kept for backward compatibility with streaming endpoint.
+        """
+        logger.warning("⚠️ DEPRECATED: RAGOrchestrator.__init__() called - This should only be used for streaming endpoint")
+        import traceback
+        logger.debug(f"⚠️ RAGOrchestrator initialization stack:\n{''.join(traceback.format_stack()[-5:-1])}")
+        
         self.retrieval_service = RetrievalService()
         self.confidence_service = ConfidenceService()
         self.session_manager = SessionManager()
@@ -30,11 +38,15 @@ class RAGOrchestrator:
         self.kb_curator = KBCuratorService()
         self.aiops_logger = get_aiops_logger()
         self.metrics = get_metrics_service()
-        logger.info("RAGOrchestrator initialized with Perplexity integration and KB curator")
+        logger.warning("⚠️ DEPRECATED: RAGOrchestrator initialized (legacy - streaming only)")
     
     async def process_query(self, request: ChatRequest) -> ChatResponse:
         """
         Process a chat query through the full RAG pipeline
+        
+        ⚠️ DEPRECATED: This method should NOT be called for /api/v1/chat/query endpoint.
+        Use ToolAgentController instead. This is only kept for backward compatibility
+        with streaming endpoint.
         
         Args:
             request: ChatRequest with query and optional session info
@@ -45,6 +57,25 @@ class RAGOrchestrator:
         Raises:
             Exception: If any step in the pipeline fails
         """
+        logger.error("=" * 80)
+        logger.error("⚠️ CRITICAL: DEPRECATED OLD FLOW DETECTED!")
+        logger.error("⚠️ RAGOrchestrator.process_query() was called!")
+        logger.error("⚠️ This should NOT happen for /api/v1/chat/query endpoint!")
+        logger.error("⚠️ Use ToolAgentController instead!")
+        logger.error("=" * 80)
+        import traceback
+        logger.error("⚠️ Full stack trace:")
+        for line in traceback.format_stack():
+            logger.error(f"  {line.strip()}")
+        logger.error("=" * 80)
+        
+        # Raise an exception to prevent accidental use
+        raise RuntimeError(
+            "RAGOrchestrator.process_query() is deprecated. "
+            "Use ToolAgentController for /api/v1/chat/query endpoint. "
+            "This method is only for streaming endpoint compatibility."
+        )
+        
         start_time = time.time()
         session_id = request.session_id
         
@@ -74,10 +105,12 @@ class RAGOrchestrator:
             # Step 1: Retrieve from internal KB
             # For Phase 3, we use a default kb_id. In Phase 5, this will be configurable
             kb_id = "default_kb"  # TODO: Make configurable per request
+            logger.warning(f"⚠️ DEPRECATED OLD FLOW: RAGOrchestrator.process_query called (should use ToolAgentController)")
             logger.debug(f"Retrieving from KB: {kb_id}")
             
             # Track KB search metrics
             kb_search_start = time.time()
+            logger.warning(f"⚠️ DEPRECATED OLD FLOW: Calling RetrievalService directly (should go through KnowledgeBaseTool)")
             retrieval_results = await self.retrieval_service.retrieve(
                 query=request.query,
                 kb_id=kb_id,
@@ -334,12 +367,17 @@ class RAGOrchestrator:
         """
         Process a chat query with streaming response
         
+        ⚠️ LEGACY: This method uses the old RAG flow (not tool-based).
+        It's kept for backward compatibility with the streaming endpoint.
+        Future: Should be refactored to use ToolAgentController with streaming support.
+        
         Args:
             request: ChatRequest with query and optional session info
         
         Yields:
             Dictionary chunks with streaming data
         """
+        logger.info("⚠️ LEGACY STREAMING FLOW: Using RAGOrchestrator.process_query_stream (legacy, but intentional)")
         start_time = time.time()
         session_id = request.session_id
         

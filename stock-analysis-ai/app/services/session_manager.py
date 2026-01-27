@@ -1,7 +1,7 @@
 """Session manager for chat conversations"""
 import logging
 import uuid
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from app.models import ChatMessage
 from app.services.metrics_service import get_metrics_service
 from datetime import datetime
@@ -108,3 +108,21 @@ class SessionManager:
         # Will be implemented when moving to database-backed storage
         logger.debug("cleanup_old_sessions called (no-op for in-memory storage)")
         return 0
+    
+    def maintain_context(self, session_id: str, tool_calls: List[Dict[str, Any]]) -> None:
+        """
+        Maintain conversation context across tool calls
+        
+        Args:
+            session_id: Session identifier
+            tool_calls: List of tool calls made during query processing
+        
+        Note:
+            This method ensures conversation history is preserved across
+            multiple tool calls within a single query processing flow.
+            Tool calls are tracked but not added as messages to preserve
+            the natural conversation flow.
+        """
+        # For now, this is a no-op as tool calls are tracked separately
+        # In the future, this could store tool call metadata in session
+        logger.debug(f"Maintaining context for session {session_id} with {len(tool_calls)} tool calls")

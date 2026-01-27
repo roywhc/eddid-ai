@@ -168,3 +168,37 @@ class ExternalKnowledgeResult(BaseModel):
 class ErrorResponse(BaseModel):
     """Error response"""
     detail: str
+
+# ===== Tool Call Models =====
+
+class ToolCall(BaseModel):
+    """Tool call model for tracking tool invocations"""
+    tool_call_id: str
+    query_id: str
+    session_id: Optional[str] = None
+    tool_name: str
+    parameters: Dict[str, Any]
+    result: Optional[Dict[str, Any]] = None
+    status: str  # "success", "failure", "retry"
+    error_message: Optional[str] = None
+    duration_ms: int
+    retry_count: int = 0
+    created_at: datetime
+
+class Keyword(BaseModel):
+    """Keyword model for indexed keywords from Perplexity results"""
+    keyword_id: str
+    keyword_text: str = Field(..., min_length=2, max_length=50)
+    created_at: datetime
+    updated_at: datetime
+    usage_count: int = 1
+    last_used_at: Optional[datetime] = None
+
+class KeywordAssociation(BaseModel):
+    """Association between keywords and queries/Perplexity results"""
+    association_id: str
+    keyword_id: str
+    query_id: Optional[str] = None
+    perplexity_result_id: Optional[str] = None
+    session_id: Optional[str] = None
+    created_at: datetime

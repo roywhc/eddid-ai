@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>sequence-diagram.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="tool-based-rag-flow-sequence-diagram">Tool-Based RAG Flow Sequence Diagram</h1>
+<p>This document illustrates the tool-based agentic flow where the LLM orchestrates tool calls to process user queries.</p>
+<h2 id="main-query-flow">Main Query Flow</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant ChatAPI as Chat API<br/>(/api/chat/query)
+    participant Agent as Agent Controller<br/>(Tool Orchestrator)
+    participant LLM as LLM Service<br/>(with Tool Calling)
+    participant KBTool as Knowledge Base Tool
+    participant KB as Knowledge Base<br/>(ChromaDB)
+    participant PerplexityTool as Perplexity Tool
+    participant PerplexityAPI as Perplexity API
+    participant KeywordIndex as Keyword Index
+    participant ResponseTool as Response Generation Tool
+
+    User->>ChatAPI: POST /query<br/>{query, session_id?}
+    
+    ChatAPI->>Agent: process_query(request)
+    
+    Note over Agent,LLM: Initialize Tool-Based Flow
+    Agent->>LLM: Send system prompt with tool definitions<br/>+ user query + conversation history
+    
+    Note over LLM,KBTool: Step 1: Mandatory Knowledge Base Tool
+    LLM->>LLM: Analyze query and tailor for KB retrieval
+    LLM->>KBTool: call_tool("knowledge_base_search",<br/>{query: tailored_query, kb_id: "default_kb", top_k: 5})
+    KBTool->>KB: similarity_search(tailored_query)
+    KB-->>KBTool: retrieval_results[]
+    KBTool-->>LLM: Tool Result: {chunks, scores, metadata}
+    
+    Note over LLM: Step 2: Evaluate KB Sufficiency
+    LLM->>LLM: Evaluate if KB results are sufficient<br/>to answer user query
+    
+    alt KB Results Sufficient
+        Note over LLM,ResponseTool: Step 3a: Generate Response (KB Only)
+        LLM->>LLM: Prepare response from KB results
+        LLM->>ResponseTool: call_tool("generate_response",<br/>{answer: response_text,<br/>sources: kb_citations,<br/>confidence: score})
+        ResponseTool-->>LLM: Tool Result: {formatted_response}
+        
+    else KB Results Insufficient
+        Note over LLM,PerplexityTool: Step 3b: Call Perplexity Tool
+        LLM->>LLM: Tailor search query for Perplexity
+        LLM->>PerplexityTool: call_tool("perplexity_search",<br/>{query: tailored_search,<br/>context: kb_results_summary})
+        PerplexityTool->>PerplexityAPI: API call with tailored query
+        PerplexityAPI-->>PerplexityTool: {answer, citations, metadata}
+        PerplexityTool-->>LLM: Tool Result: {answer, citations}
+        
+        Note over LLM,KeywordIndex: Step 3c: Create Keywords
+        LLM->>LLM: Extract keywords from Perplexity results
+        LLM->>KeywordIndex: index_keywords({keywords: [...],<br/>query: original_query,<br/>perplexity_result_id: id})
+        KeywordIndex-->>LLM: {indexed: true, keyword_count: N}
+        
+        Note over LLM,ResponseTool: Step 3d: Generate Response (KB + Perplexity)
+        LLM->>LLM: Combine KB and Perplexity results
+        LLM->>ResponseTool: call_tool("generate_response",<br/>{answer: combined_response,<br/>sources: [kb_citations, perplexity_citations],<br/>confidence: score})
+        ResponseTool-->>LLM: Tool Result: {formatted_response}
+    end
+    
+    Note over LLM,Agent: Step 4: Validate Response Tool Call
+    alt Response Tool Call Successful
+        LLM-->>Agent: Final response with citations
+        Agent->>Agent: Store conversation history
+        Agent-->>ChatAPI: ChatResponse
+        ChatAPI-->>User: JSON Response<br/>{answer, sources, confidence_score, ...}
+    else Response Tool Call Failed
+        Note over Agent,LLM: Retry Logic (Once)
+        Agent->>LLM: Provide feedback + retry request
+        LLM->>ResponseTool: call_tool("generate_response", ...)
+        alt Retry Successful
+            ResponseTool-->>LLM: Tool Result: {formatted_response}
+            LLM-->>Agent: Final response
+            Agent-->>ChatAPI: ChatResponse
+            ChatAPI-->>User: JSON Response
+        else Retry Failed
+            Agent-->>ChatAPI: Error Response
+            ChatAPI-->>User: Error: Failed to generate response
+        end
+    end
+</div></code></pre>
+<h2 id="tool-call-validation-flow">Tool Call Validation Flow</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant LLM
+    participant Validator as Parameter Validator
+    participant Tool as Tool (KB/Perplexity/Response)
+
+    LLM->>Validator: Tool call request<br/>{tool_name, parameters}
+    
+    Validator->>Validator: Validate parameter types
+    Validator->>Validator: Sanitize inputs
+    Validator->>Validator: Check length limits
+    Validator->>Validator: Detect malicious patterns
+    
+    alt Validation Passed
+        Validator->>Tool: Execute tool with validated parameters
+        Tool-->>Validator: Tool result
+        Validator-->>LLM: Tool result
+    else Validation Failed
+        Validator-->>LLM: Error: Invalid parameters<br/>{reason, guidance}
+        Note over LLM: LLM can retry with corrected parameters
+    end
+</div></code></pre>
+<h2 id="mandatory-tool-call-enforcement-flow">Mandatory Tool Call Enforcement Flow</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Agent
+    participant LLM
+    participant KBTool as Knowledge Base Tool
+
+    Agent->>LLM: Initial request with mandatory KB tool instruction
+    
+    LLM-->>Agent: Response (check for KB tool call)
+    
+    alt KB Tool Call Present
+        Agent->>KBTool: Execute KB tool call
+        KBTool-->>Agent: Results
+        Agent->>Agent: Continue flow
+    else KB Tool Call Missing
+        Note over Agent,LLM: Detection & Retry
+        Agent->>Agent: Detect missing mandatory tool call
+        Agent->>LLM: Feedback: "You must call knowledge_base_search tool"<br/>+ Retry request
+        LLM-->>Agent: Response (check again for KB tool call)
+        alt KB Tool Call Present After Retry
+            Agent->>KBTool: Execute KB tool call
+            KBTool-->>Agent: Results
+            Agent->>Agent: Continue flow
+        else KB Tool Call Still Missing
+            Agent->>Agent: Return error to user
+            Agent-->>User: Error: Mandatory tool call failed
+        end
+    end
+</div></code></pre>
+<h2 id="keyword-indexing-flow">Keyword Indexing Flow</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant LLM
+    participant KeywordIndex as Keyword Index
+    participant KB as Knowledge Base
+
+    Note over LLM: After Perplexity Tool Call
+    LLM->>LLM: Extract keywords from Perplexity results<br/>(2-50 chars, non-empty, guided by system)
+    
+    LLM->>KeywordIndex: index_keywords({keywords, query_id, perplexity_result_id})
+    
+    KeywordIndex->>KeywordIndex: Validate keywords (length, format)
+    KeywordIndex->>KeywordIndex: Check for duplicates
+    
+    alt Duplicate Keywords Found
+        KeywordIndex->>KeywordIndex: Merge duplicates<br/>Associate with all related queries/results
+        KeywordIndex-->>LLM: {indexed: true, merged: true, keyword_count: N}
+    else New Keywords
+        KeywordIndex->>KeywordIndex: Store new keywords<br/>Associate with query and Perplexity result
+        KeywordIndex-->>LLM: {indexed: true, keyword_count: N}
+    end
+    
+    Note over KB: Future Queries
+    KB->>KeywordIndex: Query by keywords
+    KeywordIndex-->>KB: Related queries and results
+</div></code></pre>
+<hr>
+<h2 id="system-prompts">System Prompts</h2>
+<h3 id="main-system-prompt">Main System Prompt</h3>
+<pre class="hljs"><code><div>You are an intelligent assistant that helps users by retrieving information from knowledge bases and external sources. You MUST use tool calls for all operations - never return responses directly.
+
+WORKFLOW:
+1. MANDATORY: You MUST call the knowledge_base_search tool for EVERY query. Tailor the user's query to optimize retrieval results (e.g., extract key concepts, use synonyms, focus on specific aspects).
+
+2. EVALUATE: After receiving knowledge base results, evaluate whether they are sufficient to answer the user's query completely and accurately.
+
+3. CONDITIONAL: If knowledge base results are insufficient:
+   - Call the perplexity_search tool with a tailored search query optimized for external knowledge retrieval
+   - After receiving Perplexity results, extract 3-10 keywords (2-50 characters each, non-empty) that represent key concepts
+   - Call the index_keywords tool to store these keywords for future queries
+   - Keywords should be specific enough to be useful but general enough to match related queries
+
+4. MANDATORY: You MUST call the generate_response tool to return your final answer. Never return the answer directly in your message.
+
+TOOL CALLS:
+- All tool parameters will be validated. Ensure parameters are properly formatted and within length limits.
+- If a tool call fails, you will receive an error message. Retry with corrected parameters if possible.
+
+RESPONSE FORMAT:
+- Combine information from knowledge base and Perplexity (if used) into a coherent answer
+- Preserve all citations and source attribution
+- Be clear about which information comes from which source
+</div></code></pre>
+<h3 id="knowledge-base-tool-prompt-embedded-in-tool-definition">Knowledge Base Tool Prompt (Embedded in Tool Definition)</h3>
+<pre class="hljs"><code><div>Tool: knowledge_base_search
+
+Description: Search the internal knowledge base for relevant information. This tool is MANDATORY for every query.
+
+Parameters:
+- query (string, required): Tailored search query optimized for retrieval. Extract key concepts, use domain-specific terminology, focus on specific aspects of the user's question.
+- kb_id (string, default: &quot;default_kb&quot;): Knowledge base identifier
+- top_k (integer, default: 5): Number of results to return
+
+Returns:
+- chunks: List of relevant text chunks with content and metadata
+- scores: Relevance scores for each chunk
+- metadata: Document IDs, titles, sections, etc.
+
+IMPORTANT: Always tailor the query to maximize retrieval quality. Consider:
+- Extracting core concepts from the user's question
+- Using synonyms or related terms
+- Focusing on specific aspects if the query is broad
+- Using domain-specific terminology when appropriate
+</div></code></pre>
+<h3 id="perplexity-tool-prompt-embedded-in-tool-definition">Perplexity Tool Prompt (Embedded in Tool Definition)</h3>
+<pre class="hljs"><code><div>Tool: perplexity_search
+
+Description: Search external knowledge sources via Perplexity API. Only call this tool when knowledge base results are insufficient to answer the user's query completely.
+
+Parameters:
+- query (string, required): Tailored search query optimized for external knowledge retrieval. This should be different from the knowledge base query - focus on current information, recent events, or topics not covered in internal KB.
+- context (string, optional): Summary of knowledge base results to provide context
+
+Returns:
+- answer: Comprehensive answer from external sources
+- citations: List of source URLs and references
+- metadata: Query time, model used, etc.
+
+IMPORTANT: 
+- Only call this tool if knowledge base results are truly insufficient
+- Tailor the search query specifically for external knowledge (current events, recent data, etc.)
+- After receiving results, you MUST extract keywords for indexing
+</div></code></pre>
+<h3 id="keyword-extraction-guidance-embedded-in-system-prompt">Keyword Extraction Guidance (Embedded in System Prompt)</h3>
+<pre class="hljs"><code><div>KEYWORD EXTRACTION GUIDELINES:
+
+When extracting keywords from Perplexity results:
+- Extract 3-10 keywords that represent the core concepts
+- Keywords should be 2-50 characters, non-empty
+- Avoid generic words (e.g., &quot;the&quot;, &quot;and&quot;, &quot;is&quot;)
+- Prefer specific, meaningful terms
+- Include both broad concepts and specific details
+- Examples of good keywords:
+  * &quot;AAPL stock price&quot; (specific)
+  * &quot;quantum computing applications&quot; (concept + domain)
+  * &quot;2026 market trends&quot; (temporal + domain)
+- Examples of poor keywords:
+  * &quot;the&quot; (too generic)
+  * &quot;information&quot; (too vague)
+  * &quot;a&quot; (too short, generic)
+
+The system will validate keywords and provide feedback if they don't meet quality standards.
+</div></code></pre>
+<h3 id="response-generation-tool-prompt-embedded-in-tool-definition">Response Generation Tool Prompt (Embedded in Tool Definition)</h3>
+<pre class="hljs"><code><div>Tool: generate_response
+
+Description: Generate and format the final response to the user. This tool is MANDATORY - you MUST use it to return your answer, never return the answer directly.
+
+Parameters:
+- answer (string, required): The complete answer combining information from all sources
+- sources (array, required): List of citations from knowledge base and/or Perplexity
+- confidence_score (float, optional): Confidence in the answer quality (0.0-1.0)
+- used_internal_kb (boolean, required): Whether knowledge base was used
+- used_external_kb (boolean, required): Whether Perplexity was used
+
+Returns:
+- formatted_response: The final response formatted for the user
+- metadata: Processing information
+
+IMPORTANT: 
+- This tool call is MANDATORY for every query
+- If this tool call fails, the system will retry once
+- Never return the answer directly in your message - always use this tool
+</div></code></pre>
+<h3 id="mandatory-tool-call-enforcement-prompt-used-when-tool-call-missing">Mandatory Tool Call Enforcement Prompt (Used When Tool Call Missing)</h3>
+<pre class="hljs"><code><div>ERROR: You did not call the required tool.
+
+You MUST call the [tool_name] tool before proceeding. This is a mandatory step in the workflow.
+
+Please retry your response and include the required tool call with appropriate parameters.
+
+Current workflow step: [current_step]
+Expected tool: [tool_name]
+</div></code></pre>
+<hr>
+<h2 id="error-handling-flows">Error Handling Flows</h2>
+<h3 id="tool-call-failure-handling">Tool Call Failure Handling</h3>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant LLM
+    participant Tool
+    participant Agent
+
+    LLM->>Tool: Tool call request
+    Tool->>Tool: Execute tool
+    
+    alt Tool Execution Success
+        Tool-->>LLM: Tool result
+        LLM->>LLM: Process result and continue
+    else Tool Execution Failure
+        Tool-->>LLM: Error message with details
+        alt Retryable Error
+            LLM->>LLM: Analyze error
+            LLM->>Tool: Retry with corrected parameters
+            Tool-->>LLM: Result or error
+        else Non-Retryable Error
+            LLM->>Agent: Report error
+            Agent->>Agent: Handle gracefully
+            Note over Agent: Continue with available information<br/>or return error to user
+        end
+    end
+</div></code></pre>
+<h3 id="response-generation-tool-retry-flow">Response Generation Tool Retry Flow</h3>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant LLM
+    participant ResponseTool
+    participant Agent
+
+    LLM->>ResponseTool: call_tool("generate_response", params)
+    
+    alt First Attempt Success
+        ResponseTool-->>LLM: {formatted_response}
+        LLM-->>Agent: Final response
+    else First Attempt Failed
+        ResponseTool-->>LLM: Error: Tool call failed
+        Agent->>Agent: Detect missing response tool call
+        Agent->>LLM: Feedback: "You must call generate_response tool"<br/>+ Retry request
+        LLM->>ResponseTool: call_tool("generate_response", params)
+        alt Retry Success
+            ResponseTool-->>LLM: {formatted_response}
+            LLM-->>Agent: Final response
+        else Retry Failed
+            Agent->>Agent: Return error to user
+            Agent-->>User: Error: Failed to generate response after retry
+        end
+    end
+</div></code></pre>
+<hr>
+<h2 id="notes">Notes</h2>
+<ul>
+<li><strong>Tool Call Validation</strong>: All tool call parameters are validated for type, length, and security before execution</li>
+<li><strong>Mandatory Tools</strong>: Knowledge base tool and response generation tool are mandatory and enforced with detection and retry logic</li>
+<li><strong>Keyword Quality</strong>: Keywords are validated (2-50 chars, non-empty) and the LLM receives guidance on optimal keyword creation</li>
+<li><strong>Duplicate Handling</strong>: Duplicate keywords are automatically merged and associated with all related queries and results</li>
+<li><strong>Error Recovery</strong>: System gracefully handles tool failures with retry mechanisms and fallback behaviors</li>
+<li><strong>Conversation Context</strong>: Session history is maintained across all tool calls within a single query processing flow</li>
+</ul>
+
+</body>
+</html>
