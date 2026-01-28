@@ -93,20 +93,20 @@
 
 ### Tests for User Story 2
 
-- [ ] T030 [P] [US2] Contract test for perplexity_search tool definition in tests/contract/test_tool_definitions.py
-- [ ] T031 [P] [US2] Unit test for perplexity_tool parameter validation in tests/unit/test_tool_validator.py
-- [ ] T032 [P] [US2] Integration test for tool-based flow with Perplexity in tests/integration/test_tool_based_flow.py
-- [ ] T033 [P] [US2] Integration test for Perplexity API failure handling in tests/integration/test_tool_based_flow.py
+- [X] T030 [P] [US2] Contract test for perplexity_search tool definition in tests/contract/test_tool_definitions.py
+- [X] T031 [P] [US2] Unit test for perplexity_tool parameter validation in tests/unit/test_tool_validator.py
+- [X] T032 [P] [US2] Integration test for tool-based flow with Perplexity in tests/integration/test_tool_based_flow.py
+- [X] T033 [P] [US2] Integration test for Perplexity API failure handling in tests/integration/test_tool_based_flow.py
 
 ### Implementation for User Story 2
 
-- [ ] T034 [P] [US2] Create perplexity_tool.py wrapping PerplexityService in stock-analysis-ai/app/services/tools/perplexity_tool.py
-- [ ] T035 [US2] Add perplexity_search tool definition to tool_definitions.py in stock-analysis-ai/app/services/tools/tool_definitions.py
-- [ ] T036 [US2] Update system prompt with Perplexity tool usage instructions in stock-analysis-ai/app/utils/prompt_templates.py
-- [ ] T037 [US2] Extend tool_agent_controller to handle Perplexity tool calls in stock-analysis-ai/app/services/tool_agent_controller.py
-- [ ] T038 [US2] Implement Perplexity API failure handling with graceful fallback in stock-analysis-ai/app/services/tool_agent_controller.py
-- [ ] T039 [US2] Update response generation to combine KB and Perplexity results in stock-analysis-ai/app/services/tools/response_generator_tool.py
-- [ ] T040 [US2] Add Perplexity tool call logging to AIOps logger in stock-analysis-ai/app/utils/aiops_logger.py
+- [X] T034 [P] [US2] Create perplexity_tool.py wrapping PerplexityService in stock-analysis-ai/app/services/tools/perplexity_tool.py
+- [X] T035 [US2] Add perplexity_search tool definition to tool_definitions.py in stock-analysis-ai/app/services/tools/tool_definitions.py
+- [X] T036 [US2] Update system prompt with Perplexity tool usage instructions in stock-analysis-ai/app/utils/prompt_templates.py
+- [X] T037 [US2] Extend tool_agent_controller to handle Perplexity tool calls in stock-analysis-ai/app/services/tool_agent_controller.py
+- [X] T038 [US2] Implement Perplexity API failure handling with graceful fallback in stock-analysis-ai/app/services/tool_agent_controller.py
+- [X] T039 [US2] Update response generation to combine KB and Perplexity results in stock-analysis-ai/app/services/tools/response_generator_tool.py
+- [X] T040 [US2] Add Perplexity tool call logging to AIOps logger in stock-analysis-ai/app/utils/aiops_logger.py
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently. System can handle queries requiring external knowledge via Perplexity tool.
 
@@ -120,24 +120,24 @@
 
 ### Tests for User Story 3
 
-- [ ] T041 [P] [US3] Contract test for index_keywords tool definition in tests/contract/test_tool_definitions.py
-- [ ] T042 [P] [US3] Unit test for keyword_indexer keyword validation in tests/unit/test_keyword_indexer.py
-- [ ] T043 [P] [US3] Unit test for keyword_indexer duplicate handling in tests/unit/test_keyword_indexer.py
-- [ ] T044 [P] [US3] Integration test for keyword indexing flow in tests/integration/test_tool_based_flow.py
-- [ ] T045 [P] [US3] Integration test for keyword retrieval in KB queries in tests/integration/test_tool_based_flow.py
+- [X] T041 [P] [US3] Contract test for index_keywords tool definition in tests/contract/test_tool_definitions.py
+- [X] T042 [P] [US3] Unit test for keyword_indexer keyword validation in tests/unit/test_keyword_indexer.py
+- [X] T043 [P] [US3] Unit test for keyword_indexer duplicate handling in tests/unit/test_keyword_indexer.py
+- [X] T044 [P] [US3] Integration test for keyword indexing flow in tests/integration/test_tool_based_flow.py
+- [X] T045 [P] [US3] Integration test for keyword retrieval in KB queries in tests/integration/test_tool_based_flow.py
 
 ### Implementation for User Story 3
 
-- [ ] T046 [P] [US3] Create keyword_indexer.py service for keyword operations in stock-analysis-ai/app/services/keyword_indexer.py
-- [ ] T047 [US3] Implement keyword validation (2-50 chars, non-empty, not generic) in stock-analysis-ai/app/services/keyword_indexer.py
-- [ ] T048 [US3] Implement keyword storage with duplicate detection and merging in stock-analysis-ai/app/services/keyword_indexer.py
-- [ ] T049 [US3] Implement keyword association with queries and Perplexity results in stock-analysis-ai/app/services/keyword_indexer.py
-- [ ] T050 [P] [US3] Create index_keywords_tool.py wrapping KeywordIndexer in stock-analysis-ai/app/services/tools/index_keywords_tool.py
-- [ ] T051 [US3] Add index_keywords tool definition to tool_definitions.py in stock-analysis-ai/app/services/tools/tool_definitions.py
-- [ ] T052 [US3] Update system prompt with keyword extraction guidance in stock-analysis-ai/app/utils/prompt_templates.py
-- [ ] T053 [US3] Extend tool_agent_controller to automatically call index_keywords after Perplexity in stock-analysis-ai/app/services/tool_agent_controller.py
+- [X] T046 [P] [US3] Create keyword_indexer.py service for keyword operations in stock-analysis-ai/app/services/keyword_indexer.py
+- [X] T047 [US3] Implement keyword validation (2-50 chars, non-empty, not generic) in stock-analysis-ai/app/services/keyword_indexer.py
+- [X] T048 [US3] Implement keyword storage with duplicate detection and merging in stock-analysis-ai/app/services/keyword_indexer.py
+- [X] T049 [US3] Implement keyword association with queries and Perplexity results in stock-analysis-ai/app/services/keyword_indexer.py
+- [X] T050 [P] [US3] Create index_keywords_tool.py wrapping KeywordIndexer in stock-analysis-ai/app/services/tools/index_keywords_tool.py
+- [X] T051 [US3] Add index_keywords tool definition to tool_definitions.py in stock-analysis-ai/app/services/tools/tool_definitions.py
+- [X] T052 [US3] Update system prompt with keyword extraction guidance in stock-analysis-ai/app/utils/prompt_templates.py
+- [X] T053 [US3] Extend tool_agent_controller to handle index_keywords tool calls in stock-analysis-ai/app/services/tool_agent_controller.py
 - [ ] T054 [US3] Integrate keyword retrieval into KB search (optional enhancement) in stock-analysis-ai/app/services/tools/knowledge_base_tool.py
-- [ ] T055 [US3] Add keyword indexing logging to AIOps logger in stock-analysis-ai/app/utils/aiops_logger.py
+- [X] T055 [US3] Add keyword indexing logging to AIOps logger in stock-analysis-ai/app/utils/aiops_logger.py
 
 **Checkpoint**: At this point, all user stories should be independently functional. System can index keywords from Perplexity results and use them for future queries.
 
@@ -147,15 +147,15 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T056 [P] Add comprehensive error handling for all tool failures in stock-analysis-ai/app/services/tool_agent_controller.py
-- [ ] T057 [P] Add metrics for tool call success rates and durations in stock-analysis-ai/app/services/metrics_service.py
-- [ ] T058 [P] Add streaming support for tool-based flow in stock-analysis-ai/app/services/tool_agent_controller.py
+- [X] T056 [P] Add comprehensive error handling for all tool failures in stock-analysis-ai/app/services/tool_agent_controller.py
+- [X] T057 [P] Add metrics for tool call success rates and durations in stock-analysis-ai/app/services/tool_agent_controller.py
+- [X] T058 [P] Add streaming support for tool-based flow in stock-analysis-ai/app/services/tool_agent_controller.py
 - [ ] T059 [P] Update documentation with tool-based flow architecture in stock-analysis-ai/docs/
-- [ ] T060 [P] Code cleanup and refactoring of old RAG orchestrator (deprecate or remove) in stock-analysis-ai/app/services/rag_orchestrator.py
-- [ ] T061 [P] Add performance monitoring for tool call overhead in stock-analysis-ai/app/services/metrics_service.py
-- [ ] T062 [P] Security review of tool parameter validation in stock-analysis-ai/app/services/tool_validator.py
-- [ ] T063 Run quickstart.md validation and update if needed in specs/002-tool-based-rag-flow/quickstart.md
-- [ ] T064 [P] Add integration tests for edge cases (empty KB results, tool failures, etc.) in tests/integration/test_tool_based_flow.py
+- [X] T060 [P] Code cleanup and refactoring of old RAG orchestrator (deprecate or remove) in stock-analysis-ai/app/services/rag_orchestrator.py
+- [X] T061 [P] Add performance monitoring for tool call overhead in stock-analysis-ai/app/services/tool_agent_controller.py
+- [X] T062 [P] Security review of tool parameter validation in stock-analysis-ai/app/services/tool_validator.py
+- [X] T063 Run quickstart.md validation and update if needed in specs/002-tool-based-rag-flow/quickstart.md
+- [X] T064 [P] Add integration tests for edge cases (empty KB results, tool failures, etc.) in tests/integration/test_tool_based_flow.py
 - [ ] T065 [P] Add unit tests for all tool implementations in tests/unit/
 
 ---

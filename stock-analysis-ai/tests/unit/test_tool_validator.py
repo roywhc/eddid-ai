@@ -79,6 +79,36 @@ def test_validate_query_parameter_invalid():
     assert "malicious" in error.lower()
 
 
+def test_validate_perplexity_query_parameter_valid():
+    """Test validation of valid Perplexity query parameters (User Story 2)"""
+    is_valid, error = ToolValidator.validate_query_parameter("test query for Perplexity")
+    assert is_valid is True
+    assert error is None
+    
+    is_valid, error = ToolValidator.validate_query_parameter("What is the latest news about AI?")
+    assert is_valid is True
+    assert error is None
+
+
+def test_validate_perplexity_query_parameter_invalid():
+    """Test validation of invalid Perplexity query parameters (User Story 2)"""
+    # Empty string
+    is_valid, error = ToolValidator.validate_query_parameter("")
+    assert is_valid is False
+    assert error is not None
+    
+    # Too long
+    long_query = "a" * 5001
+    is_valid, error = ToolValidator.validate_query_parameter(long_query)
+    assert is_valid is False
+    assert "maximum length" in error.lower()
+    
+    # Malicious pattern
+    is_valid, error = ToolValidator.validate_query_parameter("<script>alert('xss')</script>")
+    assert is_valid is False
+    assert "malicious" in error.lower()
+
+
 def test_validate_keyword_valid():
     """Test validation of valid keywords"""
     is_valid, error = ToolValidator.validate_keyword("artificial intelligence")

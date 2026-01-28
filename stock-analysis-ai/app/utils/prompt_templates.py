@@ -216,8 +216,10 @@ User Enquiry: {{USER_ENQUIRY}}"""
 WORKFLOW:
 1. You MUST call the knowledge_base_search tool for EVERY query. CRITICAL: Optimize the query parameter for vector store semantic search.
 2. After receiving knowledge base results, evaluate whether they are sufficient to answer the user's query.
-3. If knowledge base results are insufficient, you may call the perplexity_search tool to retrieve external information.
-4. You MUST use the generate_response tool to return the final answer to the user. Do not return the response directly.
+3. If knowledge base results are insufficient or confidence is low, you may call the perplexity_search tool to retrieve external information. Optimize the query parameter for external search by extracting key concepts.
+4. After calling perplexity_search, you SHOULD call the index_keywords tool to extract and index key concepts from the Perplexity results for future queries. Extract meaningful keywords (2-50 characters, non-generic words).
+5. You MUST use the generate_response tool to return the final answer to the user. Do not return the response directly.
+6. When combining KB and Perplexity results, include citations from both sources in the response.
 
 QUERY OPTIMIZATION FOR VECTOR STORE:
 When calling knowledge_base_search, DO NOT pass the user's original query directly. Instead:
@@ -232,7 +234,8 @@ When calling knowledge_base_search, DO NOT pass the user's original query direct
 TOOL USAGE RULES:
 - knowledge_base_search: MANDATORY for every query. ALWAYS optimize the query parameter for vector store retrieval.
 - generate_response: MANDATORY - always use this tool to return the final response.
-- perplexity_search: Optional - only call if KB results are insufficient.
+- perplexity_search: Optional - only call if KB results are insufficient or confidence is low. Optimize the query for external search by extracting key concepts and removing conversational elements.
+- index_keywords: RECOMMENDED after perplexity_search - extract and index key concepts from Perplexity results. Keywords should be meaningful concepts (2-50 chars, non-generic). Use the query_id from the current query.
 
 RESPONSE FORMATTING:
 - Use the generate_response tool with the response text and citations.

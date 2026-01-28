@@ -15,9 +15,12 @@ from app.services.tool_enforcer import ToolEnforcer
 from app.services.tools.tool_definitions import get_tool_definitions
 from app.services.tools.knowledge_base_tool import KnowledgeBaseTool
 from app.services.tools.response_generator_tool import ResponseGeneratorTool
+from app.services.tools.perplexity_tool import PerplexityTool
+from app.services.tools.index_keywords_tool import IndexKeywordsTool
 from app.utils.aiops_logger import get_aiops_logger
 from app.utils.prompt_templates import PromptTemplates
 from app.models import ChatRequest, ChatResponse, Citation
+from app.services.metrics_service import get_metrics_service
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +48,16 @@ class ToolAgentController:
             logger.info("🔧 TOOL-BASED FLOW: ToolEnforcer initialized")
             self.aiops_logger = get_aiops_logger()
             logger.info("🔧 TOOL-BASED FLOW: AIOpsLogger initialized")
+            self.metrics = get_metrics_service()
+            logger.info("🔧 TOOL-BASED FLOW: MetricsService initialized")
             self.kb_tool = KnowledgeBaseTool()
             logger.info("🔧 TOOL-BASED FLOW: KnowledgeBaseTool initialized")
             self.response_tool = ResponseGeneratorTool()
             logger.info("🔧 TOOL-BASED FLOW: ResponseGeneratorTool initialized")
+            self.perplexity_tool = PerplexityTool()
+            logger.info("🔧 TOOL-BASED FLOW: PerplexityTool initialized")
+            self.index_keywords_tool = IndexKeywordsTool()
+            logger.info("🔧 TOOL-BASED FLOW: IndexKeywordsTool initialized")
             self.tool_definitions = get_tool_definitions()
             logger.info(f"🔧 TOOL-BASED FLOW: Loaded {len(self.tool_definitions)} tool definition(s)")
             logger.info("🔧 TOOL-BASED FLOW: ✅ ToolAgentController initialized successfully")
@@ -79,6 +88,7 @@ class ToolAgentController:
         start_time = time.time()
         all_tool_calls: List[Dict[str, Any]] = []
         kb_results = None
+        perplexity_results = None
         final_response_data = None
         used_internal_kb = False
         used_external_kb = False
@@ -115,19 +125,30 @@ class ToolAgentController:
             # Call LLM with tool calling enabled
             max_iterations = 5  # Prevent infinite loops
             iteration = 0
+            llm_call_count = 0
             
             while iteration < max_iterations:
                 iteration += 1
                 logger.info(f"🔧 TOOL-BASED FLOW: Iteration {iteration}/{max_iterations}: Calling LLM with {len(self.tool_definitions)} tool(s)")
                 
+                # Record LLM call metrics
+                llm_call_start = time.time()
+                
                 # Call LLM with tools
                 logger.info(f"🔧 TOOL-BASED FLOW: Calling LLM with {len(self.tool_definitions)} tool definition(s)")
                 logger.debug(f"🔧 TOOL-BASED FLOW: Tool definitions: {[t['function']['name'] for t in self.tool_definitions]}")
                 
+                # Determine tool_choice: use "required" to force tool calls (except when we already have response)
+                # Use "required" for initial calls and when we need tool execution
+                # Use "auto" only if we're in a retry scenario after getting a direct response
+                tool_choice_value = "required" if not final_response_data else "auto"
+                
+                logger.info(f"🔧 TOOL-BASED FLOW: Using tool_choice='{tool_choice_value}' to enforce tool usage")
+                
                 llm_response = await self.llm_service.chat(
                     messages=messages,
                     tools=self.tool_definitions,
-                    tool_choice="auto"  # Let LLM decide which tools to call
+                    tool_choice=tool_choice_value  # Force tool calls with "required"
                 )
                 
                 logger.info(f"🔧 TOOL-BASED FLOW: LLM response type: {type(llm_response)}")
@@ -214,19 +235,84 @@ class ToolAgentController:
                                     for cit_dict in result["citations"]:
                                         all_citations.append(Citation(**cit_dict))
                             
+                            elif tool_name == "perplexity_search":
+                                query_param = arguments.get("query", "")
+                                additional_context = arguments.get("additional_context")
+                                logger.info(f"🔧 TOOL-BASED FLOW: 🌐 Calling PerplexityTool.execute(query='{query_param[:100]}...')")
+                                
+                                try:
+                                    result = await self.perplexity_tool.execute(
+                                        query=query_param,
+                                        additional_context=additional_context
+                                    )
+                                    perplexity_results = result
+                                    used_external_kb = True
+                                    logger.info(f"🔧 TOOL-BASED FLOW: ✅ PerplexityTool returned answer (length={len(result.get('answer', ''))}, citations={result.get('citation_count', 0)})")
+                                    
+                                    # Extract citations
+                                    if result.get("citations"):
+                                        for cit_dict in result["citations"]:
+                                            all_citations.append(Citation(**cit_dict))
+                                    
+                                    # Automatically trigger keyword indexing after Perplexity (if successful)
+                                    if result.get("success") and result.get("answer"):
+                                        logger.info(f"🔧 TOOL-BASED FLOW: 🔄 Perplexity succeeded, will prompt LLM to index keywords")
+                                        # Note: We'll let LLM decide to call index_keywords tool, but we can add a hint
+                                        # The system prompt already instructs LLM to index keywords after Perplexity
+                                except Exception as e:
+                                    logger.error(f"🔧 TOOL-BASED FLOW: ❌ PerplexityTool execution failed: {e}", exc_info=True)
+                                    # Handle Perplexity failure gracefully - continue with KB results only
+                                    result = {
+                                        "success": False,
+                                        "error": str(e),
+                                        "answer": "",
+                                        "citations": [],
+                                        "citation_count": 0
+                                    }
+                                    perplexity_results = result
+                                    # Don't set used_external_kb = True if it failed
+                            
+                            elif tool_name == "index_keywords":
+                                keywords_list = arguments.get("keywords", [])
+                                query_id_param = arguments.get("query_id", query_id)
+                                perplexity_result_id_param = arguments.get("perplexity_result_id")
+                                session_id_param = arguments.get("session_id", session_id)
+                                logger.info(f"🔧 TOOL-BASED FLOW: 📝 Calling IndexKeywordsTool.execute(keywords={len(keywords_list)})")
+                                
+                                try:
+                                    result = self.index_keywords_tool.execute(
+                                        keywords=keywords_list,
+                                        query_id=query_id_param,
+                                        perplexity_result_id=perplexity_result_id_param,
+                                        session_id=session_id_param
+                                    )
+                                    logger.info(f"🔧 TOOL-BASED FLOW: ✅ IndexKeywordsTool indexed {len(result.get('indexed_keywords', []))} keywords")
+                                except Exception as e:
+                                    logger.error(f"🔧 TOOL-BASED FLOW: ❌ IndexKeywordsTool execution failed: {e}", exc_info=True)
+                                    result = {
+                                        "success": False,
+                                        "error": str(e),
+                                        "indexed_keywords": [],
+                                        "invalid_keywords": [],
+                                        "duplicate_keywords": []
+                                    }
+                            
                             elif tool_name == "generate_response":
                                 response_text = arguments.get("response", "")
                                 logger.info(f"🔧 TOOL-BASED FLOW: 📝 Calling ResponseGeneratorTool.execute(response_length={len(response_text)})")
                                 result = self.response_tool.execute(
                                     response=response_text,
                                     sources=arguments.get("sources"),
-                                    confidence_score=arguments.get("confidence_score", 0.8)
+                                    confidence_score=arguments.get("confidence_score", 0.8),
+                                    kb_results=kb_results,
+                                    perplexity_results=perplexity_results
                                 )
                                 final_response_data = result
                                 logger.info(f"🔧 TOOL-BASED FLOW: ✅ ResponseGeneratorTool executed successfully")
                                 
-                                # Extract citations from response tool
+                                # Extract citations from response tool (already combined KB + Perplexity)
                                 if result.get("citations"):
+                                    all_citations.clear()  # Clear duplicates, use combined citations
                                     for cit_dict in result["citations"]:
                                         all_citations.append(Citation(**cit_dict))
                             
@@ -235,14 +321,26 @@ class ToolAgentController:
                                 result = {"error": f"Unknown tool: {tool_name}"}
                             
                             tool_duration = (time.time() - tool_start) * 1000
-                            logger.info(f"🔧 TOOL-BASED FLOW: ✅ Tool {tool_name} completed in {tool_duration:.2f}ms")
+                            tool_status = "success" if result.get("success", True) else "failure"
+                            logger.info(f"🔧 TOOL-BASED FLOW: ✅ Tool {tool_name} completed in {tool_duration:.2f}ms (status={tool_status})")
+                            
+                            # Record metrics
+                            self.metrics.increment_counter(
+                                "tool_calls_total",
+                                labels={"tool_name": tool_name, "status": tool_status}
+                            )
+                            self.metrics.record_histogram(
+                                "tool_call_duration_ms",
+                                tool_duration,
+                                labels={"tool_name": tool_name}
+                            )
                             
                             # Log tool call
                             self.aiops_logger.log_tool_call(
                                 tool_name=tool_name,
                                 parameters=arguments,
                                 result=result,
-                                status="success" if result.get("success", True) else "failure",
+                                status=tool_status,
                                 duration_ms=tool_duration
                             )
                             
@@ -290,23 +388,28 @@ class ToolAgentController:
                         continue
                 
                 else:
-                    # No tool calls - LLM returned direct response
-                    logger.warning(f"🔧 TOOL-BASED FLOW: ⚠️ LLM returned direct response (no tool calls) - type={type(llm_response)}")
+                    # No tool calls - LLM returned direct response despite tool_choice="required"
+                    logger.warning(f"🔧 TOOL-BASED FLOW: ⚠️ LLM returned direct response (no tool calls) despite tool_choice='required' - type={type(llm_response)}")
                     if isinstance(llm_response, str):
-                        logger.info(f"🔧 TOOL-BASED FLOW: Direct response length={len(llm_response)}")
+                        logger.warning(f"🔧 TOOL-BASED FLOW: ⚠️ LLM returned plain text instead of tool calls: {llm_response[:200]}...")
+                    elif isinstance(llm_response, dict):
+                        logger.warning(f"🔧 TOOL-BASED FLOW: ⚠️ LLM response dict keys: {list(llm_response.keys())}")
                     
-                    # Check if mandatory tools were called
-                    all_present, missing, feedback = self.enforcer.check_mandatory_tools(all_tool_calls)
-                    if not all_present:
-                        logger.warning(f"🔧 TOOL-BASED FLOW: ⚠️ Missing mandatory tools: {missing}")
-                        # Add feedback and retry
-                        if iteration < max_iterations:
-                            logger.info(f"🔧 TOOL-BASED FLOW: 🔄 Retrying with feedback: {feedback}")
-                            messages.append({
-                                "role": "user",
-                                "content": feedback or "You must use tool calls. Please call the required tools."
-                            })
-                            continue
+                    # This should not happen with tool_choice="required", but handle it gracefully
+                    # Add strong feedback to force tool usage
+                    if iteration < max_iterations:
+                        logger.warning(f"🔧 TOOL-BASED FLOW: 🔄 Retrying with explicit tool call requirement")
+                        messages.append({
+                            "role": "user",
+                            "content": (
+                                "CRITICAL: You MUST use tool calls to process this query. "
+                                "Do NOT return text directly. You must call the knowledge_base_search tool first, "
+                                "then evaluate if perplexity_search is needed, then call generate_response tool. "
+                                "All responses must go through tool calls."
+                            )
+                        })
+                        # Force tool_choice="required" again
+                        continue
                     
                     # If we have a direct response but no tool calls, we still need to enforce
                     # For now, treat as error if no response tool was called
@@ -337,9 +440,12 @@ class ToolAgentController:
                         "content": "You must call the generate_response tool to return the final answer. Do not return the response directly."
                     })
                     
+                    # Force tool calls with "required" when retrying for response generation
+                    logger.info(f"🔧 TOOL-BASED FLOW: Retrying with tool_choice='required' to force generate_response tool")
                     llm_response = await self.llm_service.chat(
                         messages=messages,
-                        tools=self.tool_definitions
+                        tools=self.tool_definitions,
+                        tool_choice="required"  # Force tool call
                     )
                     
                     if isinstance(llm_response, dict) and "tool_calls" in llm_response:
@@ -351,7 +457,9 @@ class ToolAgentController:
                                     final_response_data = self.response_tool.execute(
                                         response=arguments.get("response", ""),
                                         sources=arguments.get("sources"),
-                                        confidence_score=arguments.get("confidence_score", 0.8)
+                                        confidence_score=arguments.get("confidence_score", 0.8),
+                                        kb_results=kb_results,
+                                        perplexity_results=perplexity_results
                                     )
                                     break
                                 except Exception as e:
@@ -367,8 +475,20 @@ class ToolAgentController:
             
             processing_time = (time.time() - start_time) * 1000
             
+            # Record overall metrics
+            self.metrics.increment_counter("tool_based_flow_queries_total")
+            self.metrics.record_histogram("tool_based_flow_processing_time_ms", processing_time)
+            self.metrics.record_histogram("tool_based_flow_tool_calls_per_query", len(all_tool_calls))
+            self.metrics.record_histogram("tool_based_flow_llm_calls_per_query", llm_call_count)
+            
+            if used_internal_kb:
+                self.metrics.increment_counter("tool_based_flow_kb_usage_total")
+            if used_external_kb:
+                self.metrics.increment_counter("tool_based_flow_perplexity_usage_total")
+            
             logger.info(f"🔧 TOOL-BASED FLOW: ========== COMPLETING TOOL-BASED FLOW ==========")
             logger.info(f"🔧 TOOL-BASED FLOW: Total tool calls made: {len(all_tool_calls)}")
+            logger.info(f"🔧 TOOL-BASED FLOW: LLM calls made: {llm_call_count}")
             logger.info(f"🔧 TOOL-BASED FLOW: Used internal KB: {used_internal_kb}, Used external KB: {used_external_kb}")
             logger.info(f"🔧 TOOL-BASED FLOW: Processing time: {processing_time:.2f}ms")
             
@@ -436,6 +556,7 @@ class ToolAgentController:
         start_time = time.time()
         all_tool_calls: List[Dict[str, Any]] = []
         kb_results = None
+        perplexity_results = None
         all_citations: List[Citation] = []
         used_internal_kb = False
         used_external_kb = False
@@ -474,10 +595,14 @@ class ToolAgentController:
                 logger.info(f"🔧 TOOL-BASED FLOW (STREAMING): Tool call iteration {iteration}/{max_iterations}")
                 
                 # Call LLM with tools (non-streaming)
+                # Use "required" to force tool calls
+                tool_choice_value = "required" if not should_stream else "auto"
+                logger.info(f"🔧 TOOL-BASED FLOW (STREAMING): Using tool_choice='{tool_choice_value}'")
+                
                 llm_response = await self.llm_service.chat(
                     messages=messages,
                     tools=self.tool_definitions,
-                    tool_choice="auto"
+                    tool_choice=tool_choice_value
                 )
                 
                 # Check if response contains tool calls
@@ -512,18 +637,83 @@ class ToolAgentController:
                                 used_internal_kb = True
                                 if "citations" in result:
                                     all_citations.extend([Citation(**c) for c in result["citations"]])
-                            elif tool_name == "knowledge_base_search":
-                                result = await self.kb_tool.execute(**arguments)
-                                kb_results = result
-                                used_internal_kb = True
-                                if "citations" in result:
-                                    all_citations.extend([Citation(**c) for c in result["citations"]])
                                 tool_results.append({
                                     "tool_call_id": tool_call["id"],
                                     "role": "tool",
                                     "name": tool_name,
                                     "content": json.dumps(result)
                                 })
+                            elif tool_name == "perplexity_search":
+                                query_param = arguments.get("query", "")
+                                additional_context = arguments.get("additional_context")
+                                logger.info(f"🔧 TOOL-BASED FLOW (STREAMING): 🌐 Calling PerplexityTool.execute(query='{query_param[:100]}...')")
+                                
+                                try:
+                                    result = await self.perplexity_tool.execute(
+                                        query=query_param,
+                                        additional_context=additional_context
+                                    )
+                                    perplexity_results = result
+                                    used_external_kb = True
+                                    if "citations" in result:
+                                        all_citations.extend([Citation(**c) for c in result["citations"]])
+                                    tool_results.append({
+                                        "tool_call_id": tool_call["id"],
+                                        "role": "tool",
+                                        "name": tool_name,
+                                        "content": json.dumps(result)
+                                    })
+                                except Exception as e:
+                                    logger.error(f"🔧 TOOL-BASED FLOW (STREAMING): ❌ PerplexityTool execution failed: {e}", exc_info=True)
+                                    result = {
+                                        "success": False,
+                                        "error": str(e),
+                                        "answer": "",
+                                        "citations": [],
+                                        "citation_count": 0
+                                    }
+                                    perplexity_results = result
+                                    tool_results.append({
+                                        "tool_call_id": tool_call["id"],
+                                        "role": "tool",
+                                        "name": tool_name,
+                                        "content": json.dumps(result)
+                                    })
+                            elif tool_name == "index_keywords":
+                                keywords_list = arguments.get("keywords", [])
+                                query_id_param = arguments.get("query_id", query_id)
+                                perplexity_result_id_param = arguments.get("perplexity_result_id")
+                                session_id_param = arguments.get("session_id", session_id)
+                                logger.info(f"🔧 TOOL-BASED FLOW (STREAMING): 📝 Calling IndexKeywordsTool.execute(keywords={len(keywords_list)})")
+                                
+                                try:
+                                    result = self.index_keywords_tool.execute(
+                                        keywords=keywords_list,
+                                        query_id=query_id_param,
+                                        perplexity_result_id=perplexity_result_id_param,
+                                        session_id=session_id_param
+                                    )
+                                    tool_results.append({
+                                        "tool_call_id": tool_call["id"],
+                                        "role": "tool",
+                                        "name": tool_name,
+                                        "content": json.dumps(result)
+                                    })
+                                except Exception as e:
+                                    logger.error(f"🔧 TOOL-BASED FLOW (STREAMING): ❌ IndexKeywordsTool execution failed: {e}", exc_info=True)
+                                    result = {
+                                        "success": False,
+                                        "error": str(e),
+                                        "indexed_keywords": [],
+                                        "invalid_keywords": [],
+                                        "duplicate_keywords": []
+                                    }
+                                    tool_results.append({
+                                        "tool_call_id": tool_call["id"],
+                                        "role": "tool",
+                                        "name": tool_name,
+                                        "content": json.dumps(result)
+                                    })
                             elif tool_name == "generate_response":
                                 # Don't execute this tool - we'll stream the response instead
                                 logger.info(f"🔧 TOOL-BASED FLOW (STREAMING): ⏭️ Skipping generate_response tool (will stream instead)")

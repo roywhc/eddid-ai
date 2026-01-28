@@ -102,10 +102,79 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
                 "required": ["response"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "perplexity_search",
+            "description": (
+                "Search external knowledge base using Perplexity API for information not available "
+                "in the internal knowledge base. Use this tool when knowledge base results are "
+                "insufficient to answer the user's query. Optimize the query for external search "
+                "by extracting key concepts and removing conversational elements."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query optimized for external knowledge retrieval. Should extract key concepts from the user query.",
+                        "minLength": 1,
+                        "maxLength": 5000
+                    },
+                    "additional_context": {
+                        "type": "string",
+                        "description": "Optional context from internal knowledge base to improve external search results",
+                        "maxLength": 2000
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "index_keywords",
+            "description": (
+                "Index keywords from Perplexity results for future knowledge base queries. "
+                "This tool should be called after perplexity_search to extract and store "
+                "key concepts from the external knowledge results. Keywords must be 2-50 "
+                "characters, non-empty, and not generic words (e.g., 'the', 'is', 'how'). "
+                "Extract meaningful concepts, entities, and technical terms."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keywords": {
+                        "type": "array",
+                        "description": "List of keyword strings to index. Each keyword should be a meaningful concept (2-50 characters).",
+                        "items": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 50
+                        },
+                        "minItems": 1,
+                        "maxItems": 50
+                    },
+                    "query_id": {
+                        "type": "string",
+                        "description": "Query ID for associating keywords with the original query"
+                    },
+                    "perplexity_result_id": {
+                        "type": "string",
+                        "description": "Optional Perplexity result ID for traceability"
+                    },
+                    "session_id": {
+                        "type": "string",
+                        "description": "Optional session ID"
+                    }
+                },
+                "required": ["keywords", "query_id"]
+            }
+        }
     }
 ]
-
-# Additional tool definitions will be added for User Story 2 (Perplexity) and User Story 3 (Keyword indexing)
 
 def get_tool_definitions() -> List[Dict[str, Any]]:
     """

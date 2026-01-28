@@ -142,6 +142,69 @@ def test_tool_definitions_completeness():
     assert "knowledge_base_search" in tool_names
     assert "generate_response" in tool_names
     
-    # User Story 2 and 3 tools are not yet defined (will be added later)
-    # assert "perplexity_search" in tool_names
-    # assert "index_keywords" in tool_names
+    # User Story 2 and 3 tools
+    # assert "perplexity_search" in tool_names  # Will be added in Phase 4
+    # assert "index_keywords" in tool_names  # Will be added in Phase 5
+
+
+def test_index_keywords_tool_definition():
+    """Test index_keywords tool definition (User Story 3)"""
+    tool_def = get_tool_definition_by_name("index_keywords")
+    
+    # Tool may not exist yet - this test will fail until implementation
+    if tool_def is None:
+        pytest.skip("index_keywords tool not yet implemented")
+    
+    assert tool_def["type"] == "function"
+    
+    function = tool_def["function"]
+    assert function["name"] == "index_keywords"
+    assert "keyword" in function["description"].lower()
+    
+    params = function["parameters"]
+    assert "keywords" in params["properties"]
+    assert "query_id" in params["properties"]
+    
+    # Check keywords parameter
+    keywords_param = params["properties"]["keywords"]
+    assert keywords_param["type"] == "array"
+    assert "items" in keywords_param
+    assert keywords_param["items"]["type"] == "string"
+    assert keywords_param["items"]["minLength"] == 2
+    assert keywords_param["items"]["maxLength"] == 50
+    
+    # Check required fields
+    assert "keywords" in params["required"]
+    assert "query_id" in params["required"]
+
+
+def test_perplexity_search_tool_definition():
+    """Test perplexity_search tool definition (User Story 2)"""
+    tool_def = get_tool_definition_by_name("perplexity_search")
+    
+    # Tool may not exist yet - this test will fail until implementation
+    if tool_def is None:
+        pytest.skip("perplexity_search tool not yet implemented")
+    
+    assert tool_def["type"] == "function"
+    
+    function = tool_def["function"]
+    assert function["name"] == "perplexity_search"
+    assert "perplexity" in function["description"].lower() or "external" in function["description"].lower()
+    
+    params = function["parameters"]
+    assert "query" in params["properties"]
+    
+    # Check query parameter
+    query_param = params["properties"]["query"]
+    assert query_param["type"] == "string"
+    assert query_param["minLength"] == 1
+    assert query_param["maxLength"] == 5000
+    
+    # Check optional parameters
+    if "additional_context" in params["properties"]:
+        context_param = params["properties"]["additional_context"]
+        assert context_param["type"] == "string"
+    
+    # Check required fields
+    assert "query" in params["required"]

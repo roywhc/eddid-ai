@@ -355,4 +355,3 @@ def update_tool_call_result(
     tool_call.duration_ms = duration_ms
     tool_call.retry_count = retry_count
     return tool_call
-
